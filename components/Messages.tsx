@@ -3,22 +3,37 @@ import { cn } from "@/utils";
 import { useVoice } from "@humeai/voice-react";
 import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";
-import { ComponentRef, forwardRef } from "react";
+import { forwardRef } from "react";
 
-const Messages = forwardRef<
-  ComponentRef<typeof motion.div>,
-  Record<never, never>
->(function Messages(_, ref) {
+const containerStyle = {
+  flexGrow: 1,
+  borderRadius: "0.375rem",
+  overflow: "auto",
+  padding: "1rem"
+};
+
+const messagesStyle = {
+  maxWidth: "42rem",
+  marginLeft: "auto",
+  marginRight: "auto",
+  width: "100%",
+  display: "flex",
+  flexDirection: "column",
+  gap: "1rem",
+  paddingBottom: "6rem"
+} as const;
+
+const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
   const { messages } = useVoice();
 
   return (
     <motion.div
       layoutScroll
-      className={"grow rounded-md overflow-auto p-4"}
+      style={containerStyle}
       ref={ref}
     >
       <motion.div
-        className={"max-w-2xl mx-auto w-full flex flex-col gap-4 pb-24"}
+        style={messagesStyle}
       >
         <AnimatePresence mode={"popLayout"}>
           {messages.map((msg, index) => {
@@ -29,12 +44,13 @@ const Messages = forwardRef<
               return (
                 <motion.div
                   key={msg.type + index}
-                  className={cn(
-                    "w-[80%]",
-                    "bg-card",
-                    "border border-border rounded",
-                    msg.type === "user_message" ? "ml-auto" : ""
-                  )}
+                  style={{
+                    width: "80%",
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "0.375rem",
+                    marginLeft: msg.type === "user_message" ? "auto" : "0"
+                  }}
                   initial={{
                     opacity: 0,
                     y: 10,

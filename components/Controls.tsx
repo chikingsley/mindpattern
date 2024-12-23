@@ -7,6 +7,17 @@ import { Toggle } from "./ui/toggle";
 import MicFFT from "./MicFFT";
 import { cn } from "@/utils";
 
+const style = {
+  padding: "1rem",
+  background: "var(--card)",
+  border: "1px solid var(--border)",
+  borderRadius: "0.5rem",
+  boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+  display: "flex",
+  alignItems: "center",
+  gap: "1rem"
+};
+
 export default function Controls() {
   const { disconnect, status, isMuted, unmute, mute, micFft } = useVoice();
 
@@ -34,9 +45,7 @@ export default function Controls() {
               y: "100%",
               opacity: 0,
             }}
-            className={
-              "p-4 bg-card border border-border rounded-lg shadow-sm flex items-center gap-4"
-            }
+            style={style}
           >
             <Toggle
               pressed={!isMuted}

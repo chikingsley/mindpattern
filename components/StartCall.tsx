@@ -1,7 +1,19 @@
+"use client";
+
 import { useVoice } from "@humeai/voice-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "./ui/button";
 import { Phone } from "lucide-react";
+
+const containerStyle = {
+  position: "fixed",
+  inset: 0,
+  padding: "1rem",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "var(--background)"
+} as const;
 
 export default function StartCall() {
   const { status, connect } = useVoice();
@@ -10,7 +22,7 @@ export default function StartCall() {
     <AnimatePresence>
       {status.value !== "connected" ? (
         <motion.div
-          className={"fixed inset-0 p-4 flex items-center justify-center bg-background"}
+          style={containerStyle}
           initial="initial"
           animate="enter"
           exit="exit"

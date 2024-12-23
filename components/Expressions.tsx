@@ -5,6 +5,14 @@ import { motion } from "framer-motion";
 import { CSSProperties } from "react";
 import * as R from "remeda";
 
+const barStyle = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  height: "100%",
+  borderRadius: "9999px"
+} as const;
+
 export default function Expressions({
   values,
 }: {
@@ -50,9 +58,10 @@ export default function Expressions({
               }
             />
             <motion.div
-              className={
-                "absolute top-0 left-0 h-full bg-[var(--bg)] rounded-full"
-              }
+              style={{
+                ...barStyle,
+                background: "var(--bg)"
+              }}
               initial={{ width: 0 }}
               animate={{
                 width: `${R.pipe(
