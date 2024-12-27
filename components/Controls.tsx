@@ -5,7 +5,8 @@ import { Mic, MicOff, Phone } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toggle } from "./ui/toggle";
 import MicFFT from "./MicFFT";
-import { cn } from "@/utils";
+import { cn } from "../lib/utils";
+import { useChatContext } from "../app/context/ChatContext";
 
 const style = {
   padding: "1rem",
@@ -20,17 +21,23 @@ const style = {
 
 export default function Controls() {
   const { disconnect, status, isMuted, unmute, mute, micFft } = useVoice();
+  const { selectSession } = useChatContext();
+
+  const handleEndCall = () => {
+    disconnect();
+    // Clear selected session when call ends
+    selectSession(null);
+  };
 
   return (
     <div
-      className={
-        cn(
-          "fixed bottom-0 left-0 w-full p-4 flex items-center justify-center",
-          "bg-gradient-to-t from-card via-card/90 to-card/0",
-        )
-      }
+      className={cn(
+        "fixed bottom-0 right-0 left-64 p-4 flex items-center justify-center",
+        "bg-gradient-to-t from-background via-background/90 to-transparent",
+        "z-50"
+      )}
     >
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {status.value === "connected" ? (
           <motion.div
             initial={{
@@ -70,9 +77,7 @@ export default function Controls() {
 
             <Button
               className={"flex items-center gap-1"}
-              onClick={() => {
-                disconnect();
-              }}
+              onClick={handleEndCall}
               variant={"destructive"}
             >
               <span>

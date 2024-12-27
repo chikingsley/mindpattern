@@ -1,52 +1,30 @@
 "use client";
 
-import { VoiceProvider } from "@humeai/voice-react";
 import Messages from "./Messages";
 import Controls from "./Controls";
-import StartCall from "./StartCall";
 import { useRef } from "react";
+import { useChatContext } from "../app/context/ChatContext";
 
-export default function ClientComponent({
-  accessToken,
-}: {
-  accessToken: string;
-}) {
+export default function Chat() {
   const timeout = useRef<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const { selectedSession } = useChatContext();
 
-  // optional: use configId from environment variable
-  const configId = process.env['NEXT_PUBLIC_HUME_CONFIG_ID'];
-  
+  // If no session is selected, show empty state
+  if (!selectedSession) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        Select a chat or start a new one
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={
-        "relative grow flex flex-col mx-auto w-full overflow-hidden h-[0px]"
-      }
-    >
-      <VoiceProvider
-        auth={{ type: "accessToken", value: accessToken }}
-        configId={configId}
-        onMessage={() => {
-          if (timeout.current) {
-            window.clearTimeout(timeout.current);
-          }
-
-          timeout.current = window.setTimeout(() => {
-            if (ref.current) {
-              const scrollHeight = ref.current.scrollHeight;
-
-              ref.current.scrollTo({
-                top: scrollHeight,
-                behavior: "smooth",
-              });
-            }
-          }, 200);
-        }}
-      >
+    <div className="relative flex flex-col h-full">
+      <div className="absolute inset-0">
         <Messages ref={ref} />
-        <Controls />
-        <StartCall />
-      </VoiceProvider>
+      </div>
+      <Controls />
     </div>
   );
 }

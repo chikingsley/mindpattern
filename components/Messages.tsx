@@ -1,54 +1,70 @@
 "use client";
-import { cn } from "@/utils";
+import { cn } from "../lib/utils";
 import { useVoice } from "@humeai/voice-react";
 import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";
-import { forwardRef } from "react";
-
-const containerStyle = {
-  flexGrow: 1,
-  borderRadius: "0.375rem",
-  overflow: "auto",
-  padding: "1rem"
-};
+import { forwardRef, useEffect, useRef } from "react";
+import { useChatContext } from "../app/context/ChatContext";
 
 const messagesStyle = {
-  maxWidth: "42rem",
+  maxWidth: "48rem",
   marginLeft: "auto",
   marginRight: "auto",
   width: "100%",
   display: "flex",
   flexDirection: "column",
-  gap: "1rem",
-  paddingBottom: "6rem"
+  gap: "1rem"
 } as const;
 
 const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
-  const { messages } = useVoice();
+  const { messages: voiceMessages } = useVoice();
+  const { selectedSession, addMessageToSession, sessions } = useChatContext();
+  const lastMessageRef = useRef<string | null>(null);
+
+  // Save new messages to current session
+  useEffect(() => {
+    if (selectedSession && voiceMessages.length > 0) {
+      const lastMessage = voiceMessages[voiceMessages.length - 1];
+      if (
+        (lastMessage.type === "user_message" || lastMessage.type === "assistant_message") &&
+        // Only add if it's a new message
+        JSON.stringify(lastMessage) !== lastMessageRef.current
+      ) {
+        lastMessageRef.current = JSON.stringify(lastMessage);
+        addMessageToSession(selectedSession, {
+          type: lastMessage.type,
+          message: lastMessage.message,
+          models: lastMessage.models
+        });
+      }
+    }
+  }, [voiceMessages, selectedSession, addMessageToSession]);
+
+  // Get messages for selected session or current voice messages
+  const currentSessionMessages = selectedSession 
+    ? sessions.find(s => s.id === selectedSession)?.messages || []
+    : voiceMessages;
 
   return (
-    <motion.div
-      layoutScroll
-      style={containerStyle}
-      ref={ref}
-    >
-      <motion.div
+    <div ref={ref} className="h-full overflow-auto pb-32">
+      <div
         style={messagesStyle}
+        className="px-4"
       >
-        <AnimatePresence mode={"popLayout"}>
-          {messages.map((msg, index) => {
+        <AnimatePresence mode={"popLayout"} initial={false}>
+          {currentSessionMessages.map((msg, index) => {
             if (
               msg.type === "user_message" ||
               msg.type === "assistant_message"
             ) {
               return (
                 <motion.div
-                  key={msg.type + index}
+                  key={`${selectedSession || 'current'}-${msg.type}-${index}`}
                   style={{
                     width: "80%",
                     background: "var(--card)",
                     border: "1px solid var(--border)",
-                    borderRadius: "0.375rem",
+                    borderRadius: "0.75rem",
                     marginLeft: msg.type === "user_message" ? "auto" : "0"
                   }}
                   initial={{
@@ -61,17 +77,21 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
                   }}
                   exit={{
                     opacity: 0,
-                    y: 0,
+                    y: -10,
                   }}
+                  transition={{
+                    duration: 0.2
+                  }}
+                  layout
                 >
                   <div
                     className={cn(
-                      "text-xs capitalize font-medium leading-none opacity-50 pt-4 px-3"
+                      "text-xs capitalize font-medium leading-none opacity-50 pt-4 px-4"
                     )}
                   >
                     {msg.message.role}
                   </div>
-                  <div className={"pb-3 px-3"}>{msg.message.content}</div>
+                  <div className={"pb-3 px-4"}>{msg.message.content}</div>
                   <Expressions values={{ ...msg.models.prosody?.scores }} />
                 </motion.div>
               );
@@ -80,9 +100,11 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
             return null;
           })}
         </AnimatePresence>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 });
+
+Messages.displayName = "Messages";
 
 export default Messages;
