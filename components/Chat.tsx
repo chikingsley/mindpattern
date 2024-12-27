@@ -6,7 +6,6 @@ import { useRef } from "react";
 import { useChatContext } from "../app/context/ChatContext";
 
 export default function Chat() {
-  const timeout = useRef<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const { selectedSession } = useChatContext();
 
@@ -20,10 +19,8 @@ export default function Chat() {
   }
 
   return (
-    <div className="relative flex flex-col h-full">
-      <div className="absolute inset-0">
-        <Messages ref={ref} />
-      </div>
+    <div className="relative h-full">
+      <Messages ref={ref} />
       <Controls />
     </div>
   );

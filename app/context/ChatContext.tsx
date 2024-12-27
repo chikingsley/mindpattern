@@ -32,7 +32,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   // Save sessions to localStorage when they change
   useEffect(() => {
-    localStorage.setItem('chatSessions', JSON.stringify(sessions))
+    if (sessions.length > 0) {
+      localStorage.setItem('chatSessions', JSON.stringify(sessions))
+    }
   }, [sessions])
 
   const addSession = (session: ChatSession) => {
@@ -47,9 +49,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const addMessageToSession = (sessionId: string, message: any) => {
     setSessions(prev => prev.map(session => {
       if (session.id === sessionId) {
-        return {
-          ...session,
-          messages: [...session.messages, message]
+        // Check if message already exists to prevent duplicates
+        const messageExists = session.messages.some(
+          m => m.type === message.type && 
+              m.message.content === message.message.content &&
+              m.message.role === message.message.role
+        )
+        if (!messageExists) {
+          return {
+            ...session,
+            messages: [...session.messages, message]
+          }
         }
       }
       return session
