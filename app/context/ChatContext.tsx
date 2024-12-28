@@ -24,18 +24,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   // Load sessions from localStorage on mount
   useEffect(() => {
-    const savedSessions = localStorage.getItem('chatSessions')
-    if (savedSessions) {
-      setSessions(JSON.parse(savedSessions))
+    // Load initial sessions from Supabase
+    const loadSessions = async () => {
+      const { data, error } = await supabase
+        .from('chat_history')
+        .select('session_id, created_at')
+        .order('created_at', { ascending: false })
+      
+      if (!error && data) {
+        const uniqueSessions = Array.from(new Set(data.map(row => row.session_id)))
+          .map(id => ({
+            id,
+            timestamp: data.find(row => row.session_id === id)?.created_at
+          }))
+        setSessions(uniqueSessions)
+      }
     }
+    
+    loadSessions()
   }, [])
-
-  // Save sessions to localStorage when they change
-  useEffect(() => {
-    if (sessions.length > 0) {
-      localStorage.setItem('chatSessions', JSON.stringify(sessions))
-    }
-  }, [sessions])
 
   const addSession = (session: ChatSession) => {
     setSessions(prev => [session, ...prev])
