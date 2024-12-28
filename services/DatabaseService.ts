@@ -50,21 +50,21 @@ export function useDatabaseService() {
       return logRequest('getInteractionsBySession',
         supabase
           .from('interactions')
-          .select('*, embeddings(*), metadata(*)')
+          .select('*')
           .eq('session_id', sessionId)
           .order('timestamp', { ascending: true })
-      ).then(result => result?.data)
+      ).then(result => result?.data || [])
     },
 
     async getInteractionsByUser(userId: string, limit = 100) {
       return logRequest('getInteractionsByUser',
         supabase
           .from('interactions')
-          .select('*, embeddings(*), metadata(*)')
+          .select('*')
           .eq('user_id', userId)
           .order('timestamp', { ascending: false })
           .limit(limit)
-      ).then(result => result?.data)
+      ).then(result => result?.data || [])
     },
 
     async storeEmbedding(data: Omit<Embedding, 'id'>) {
@@ -87,8 +87,8 @@ export function useDatabaseService() {
       ).then(result => result?.data)
     },
 
-    async createMemory(data: Omit<LongTermMemory, 'id' | 'timestamp'>) {
-      return logRequest('createMemory',
+    async storeLongTermMemory(data: Omit<LongTermMemory, 'id' | 'timestamp'>) {
+      return logRequest('storeLongTermMemory',
         supabase
           .from('long_term_memories')
           .insert(data)
@@ -97,19 +97,36 @@ export function useDatabaseService() {
       ).then(result => result?.data)
     },
 
-    async getMemoriesByUser(userId: string, category?: 'pattern' | 'event') {
-      let query = supabase
+    async getLongTermMemories(userId: string, category?: string) {
+      const query = supabase
         .from('long_term_memories')
         .select('*')
         .eq('user_id', userId)
-        .order('timestamp', { ascending: false })
+        .order('timestamp', { ascending: false });
 
       if (category) {
-        query = query.eq('category', category)
+        query.eq('category', category);
       }
 
-      return logRequest('getMemoriesByUser', query)
-        .then(result => result?.data)
+      return logRequest('getLongTermMemories', query)
+        .then(result => result?.data || []);
+    },
+
+    async matchInteractions(
+      queryEmbedding: number[],
+      userId: string,
+      threshold = 0.7,
+      limit = 5
+    ) {
+      return logRequest('matchInteractions',
+        supabase
+          .rpc('match_interactions', {
+            query_embedding: queryEmbedding,
+            match_threshold: threshold,
+            match_count: limit,
+            user_id: userId
+          })
+      ).then(result => result?.data || []);
     }
   }
 }

@@ -7,7 +7,7 @@ alter table if exists "public"."long_term_memories" enable row level security;
 -- Create tables
 create table if not exists "public"."interactions" (
     "id" uuid default gen_random_uuid() primary key,
-    "user_id" text not null,
+    "user_id" uuid not null,
     "input_type" text not null check (input_type in ('text', 'voice')),
     "content" text not null,
     "timestamp" timestamptz default now(),
@@ -17,7 +17,7 @@ create table if not exists "public"."interactions" (
 create table if not exists "public"."embeddings" (
     "id" uuid default gen_random_uuid() primary key,
     "interaction_id" uuid references public.interactions(id) on delete cascade,
-    "embedding" vector(1536),
+    "embedding" vector(1024),
     "embedding_type" text not null
 );
 
@@ -29,7 +29,7 @@ create table if not exists "public"."metadata" (
 
 create table if not exists "public"."long_term_memories" (
     "id" uuid default gen_random_uuid() primary key,
-    "user_id" text not null,
+    "user_id" uuid not null,
     "category" text check (category in ('pattern', 'event')),
     "content" text not null,
     "timestamp" timestamptz default now()
@@ -38,19 +38,19 @@ create table if not exists "public"."long_term_memories" (
 -- Create policies
 create policy "Users can read their own interactions"
     on interactions for select
-    using (auth.uid()::text = user_id);
+    using (user_id = auth.uid());
 
 create policy "Users can insert their own interactions"
     on interactions for insert
-    with check (auth.uid()::text = user_id);
+    with check (user_id = auth.uid());
 
 create policy "Users can read embeddings for their interactions"
     on embeddings for select
     using (
         exists (
-            select 1 from interactions
-            where interactions.id = embeddings.interaction_id
-            and interactions.user_id = auth.uid()::text
+            select 1 from interactions i
+            where i.id = embeddings.interaction_id
+            and i.user_id = auth.uid()
         )
     );
 
@@ -58,9 +58,9 @@ create policy "Users can insert embeddings for their interactions"
     on embeddings for insert
     with check (
         exists (
-            select 1 from interactions
-            where interactions.id = embeddings.interaction_id
-            and interactions.user_id = auth.uid()::text
+            select 1 from interactions i
+            where i.id = interaction_id
+            and i.user_id = auth.uid()
         )
     );
 
@@ -68,9 +68,9 @@ create policy "Users can read metadata for their interactions"
     on metadata for select
     using (
         exists (
-            select 1 from interactions
-            where interactions.id = metadata.interaction_id
-            and interactions.user_id = auth.uid()::text
+            select 1 from interactions i
+            where i.id = metadata.interaction_id
+            and i.user_id = auth.uid()
         )
     );
 
@@ -78,16 +78,16 @@ create policy "Users can insert metadata for their interactions"
     on metadata for insert
     with check (
         exists (
-            select 1 from interactions
-            where interactions.id = metadata.interaction_id
-            and interactions.user_id = auth.uid()::text
+            select 1 from interactions i
+            where i.id = interaction_id
+            and i.user_id = auth.uid()
         )
     );
 
 create policy "Users can read their own memories"
     on long_term_memories for select
-    using (auth.uid()::text = user_id);
+    using (user_id = auth.uid());
 
 create policy "Users can insert their own memories"
     on long_term_memories for insert
-    with check (auth.uid()::text = user_id);
+    with check (user_id = auth.uid());
