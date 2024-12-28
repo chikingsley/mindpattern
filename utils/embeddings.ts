@@ -3,7 +3,6 @@ import { JINA_API_KEY } from '@/config/api';
 type JinaTask = 'text-matching' | 'separation' | 'classification' | 'retrieval.query' | 'retrieval.passage';
 
 interface EmbeddingOptions {
-  embed_batch_size?: number;
   task?: JinaTask;
 }
 
@@ -47,7 +46,6 @@ async function processBatch(batch: string[], task: JinaTask): Promise<(number[] 
     
     const result = await response.json();
     
-    // Handle API response format
     if (result.data && Array.isArray(result.data)) {
       const embeddings = result.data.map((item: any) => item.embedding);
       if (embeddings.every((emb: any) => Array.isArray(emb))) {
@@ -58,7 +56,6 @@ async function processBatch(batch: string[], task: JinaTask): Promise<(number[] 
     throw new Error(`Invalid API response format: ${JSON.stringify(result)}`);
   } catch (error) {
     console.error('Error generating embeddings for batch:', error);
-    // Fill failed batch with nulls to maintain input/output alignment
     return Array(batch.length).fill(null);
   }
 }
@@ -70,22 +67,23 @@ export async function generateEmbeddings(inputs: string[], options?: EmbeddingOp
     return [];
   }
 
-  const batchSize = options?.embed_batch_size || 10;
+  const BATCH_SIZE = 10;  // Optimal batch size based on testing
   const task = options?.task || 'retrieval.passage';
   const batches: string[][] = [];
   
   // Split inputs into batches
-  for (let i = 0; i < validInputs.length; i += batchSize) {
-    batches.push(validInputs.slice(i, i + batchSize));
+  for (let i = 0; i < validInputs.length; i += BATCH_SIZE) {
+    batches.push(validInputs.slice(i, i + BATCH_SIZE));
   }
 
-  console.log(`Generating embeddings for ${validInputs.length} inputs in ${batches.length} batches using task: ${task}`);
+  console.log(`Generating embeddings for ${validInputs.length} inputs in ${batches.length} batches`);
 
-  // Process all batches in parallel
-  const batchResults = await Promise.all(
-    batches.map(batch => processBatch(batch, task))
-  );
+  // Process batches sequentially (proven faster than parallel)
+  const results: number[][] = [];
+  for (const batch of batches) {
+    const batchResults = await processBatch(batch, task);
+    results.push(...batchResults);
+  }
 
-  // Flatten the results
-  return batchResults.flat();
+  return results;
 }

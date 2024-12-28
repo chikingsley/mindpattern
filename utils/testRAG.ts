@@ -190,7 +190,7 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
 
   await ensureUser(supabase, userId);
 
-  // Test single threshold
+  // First test the threshold
   const threshold = 0.65;
   
   // Clear previous test data
@@ -215,6 +215,33 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
       console.log(`[${similarity.toFixed(3)}] ${isRelevant ? '✓' : '✗'} ${content}`);
     });
   });
+
+  // Now test parallel vs sequential performance
+  console.log('\nTesting Parallel vs Sequential Performance');
+  
+  // Generate larger test set
+  const largeTestSet = [];
+  for (let i = 0; i < 5; i++) {  // 5 repetitions = 60 messages
+    largeTestSet.push(...testData.map(d => d.content));
+  }
+
+  // Test with different batch sizes
+  const batchSizes = [5, 10, 15, 20];
+  
+  console.log('\nPerformance Test Results:');
+  for (const batchSize of batchSizes) {
+    console.log(`\nBatch Size: ${batchSize}`);
+    const perfResult = await testEmbeddingPerformance(largeTestSet, {
+      embed_batch_size: batchSize,
+      task: 'retrieval.passage'
+    });
+    
+    if (perfResult.improvement > 0) {
+      console.log(`✓ Parallel processing ${perfResult.improvement.toFixed(2)}% faster`);
+    } else {
+      console.log(`✗ Sequential processing ${(-perfResult.improvement).toFixed(2)}% faster`);
+    }
+  }
 }
 
 export async function insertDummyData(supabase: SupabaseClient<Database>, userId: string) {
@@ -352,4 +379,23 @@ async function generateEmbedding(input: string, options?: { task: 'text-matching
   }
   
   return result.data[0].embedding;
+}
+
+async function testEmbeddingPerformance(inputs: string[], options: { embed_batch_size: number; task: 'text-matching' | 'retrieval.passage' | 'retrieval.query' }): Promise<{ improvement: number }> {
+  const startTime = performance.now();
+  const embeddings = await generateEmbeddings(inputs);
+  const sequentialTime = performance.now() - startTime;
+
+  const parallelEmbeddings = await Promise.all(
+    Array(Math.ceil(inputs.length / options.embed_batch_size)).fill(0).map((_, i) => {
+      const batch = inputs.slice(i * options.embed_batch_size, (i + 1) * options.embed_batch_size);
+      return generateEmbeddings(batch);
+    })
+  );
+
+  const parallelTime = performance.now() - startTime;
+
+  const improvement = ((sequentialTime - parallelTime) / sequentialTime) * 100;
+
+  return { improvement };
 }
