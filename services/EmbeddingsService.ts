@@ -1,23 +1,17 @@
-import axios from 'axios';
 import { useDatabaseService } from './DatabaseService';
 import { useSupabaseClient } from '@/utils/supabase';
-import type { Interaction } from '@/types/database';
+import type { Message } from '@/types/database';
 
 const JINA_API_KEY = process.env.NEXT_PUBLIC_JINA_API_KEY;
-const CHUNK_SIZE = 512; // Adjust based on your needs
-const CHUNK_OVERLAP = 50;
 
 export function useEmbeddingsService() {
   const supabase = useSupabaseClient();
-  const dbService = useDatabaseService();
 
   async function generateEmbeddings(input: string[]): Promise<number[][]> {
     const data = {
       model: 'jina-embeddings-v3',
       task: 'text-matching',
-      late_chunking: true, // Enable late chunking
-      chunk_size: CHUNK_SIZE,
-      chunk_overlap: CHUNK_OVERLAP,
+      late_chunking: true,
       dimensions: 1024,
       embedding_type: 'float',
       input
@@ -31,93 +25,133 @@ export function useEmbeddingsService() {
     };
 
     try {
-      const response = await axios.post('https://api.jina.ai/v1/embeddings', data, config);
-      return response.data.embeddings;
+      const response = await fetch('https://api.jina.ai/v1/embeddings', {
+        method: 'POST',
+        headers: config.headers,
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Jina API error: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      // Handle API response format
+      if (result.data && Array.isArray(result.data) && result.data[0]?.embedding) {
+        return result.data.map((item: any) => item.embedding);
+      }
+      
+      throw new Error(`Invalid API response format: ${JSON.stringify(result)}`);
     } catch (error) {
       console.error('Error generating embeddings:', error);
       throw error;
     }
   }
 
-  async function storeInteractionWithEmbeddings(
-    userId: string,
+  async function storeMessage(
     content: string,
-    inputType: 'text' | 'voice',
-    sessionId?: string,
-    metadata?: Record<string, any>
-  ) {
-    // Create interaction
-    const interaction = await dbService.createInteraction({
-      user_id: userId,
-      content,
-      input_type: inputType,
-      session_id: sessionId
-    });
+    userId: string,
+    sessionId: string,
+    role: 'user' | 'assistant',
+    metadata: Record<string, any> = {}
+  ): Promise<Message | null> {
+    try {
+      // Generate embedding
+      const embeddings = await generateEmbeddings([content]);
+      
+      // Store message with embedding
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          user_id: userId,
+          session_id: sessionId,
+          content,
+          role,
+          metadata,
+          embedding: embeddings[0]
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error storing message:', error);
+      throw error;
+    }
+  }
 
-    if (!interaction) throw new Error('Failed to create interaction');
+  async function getRelevantContext(
+    content: string,
+    userId: string,
+    limit = 5
+  ): Promise<Message[]> {
+    try {
+      // Generate embedding for search
+      const embeddings = await generateEmbeddings([content]);
+      
+      // Search for similar messages
+      const { data: messages, error } = await supabase
+        .rpc('match_messages', {
+          query_embedding: embeddings[0],
+          match_threshold: 0.7,
+          match_count: limit,
+          in_user_id: userId
+        });
+        
+      if (error) throw error;
+      return messages || [];
+    } catch (error) {
+      console.error('Error getting relevant context:', error);
+      throw error;
+    }
+  }
 
-    // Generate embeddings
-    const embeddings = await generateEmbeddings([content]);
+  async function runLatencyTest(
+    userId: string,
+    sessionId: string
+  ): Promise<{
+    messageLength: number;
+    storeLatency: number;
+    retrieveLatency: number;
+    totalLatency: number;
+  }[]> {
+    const testMessages = [
+      "Quick test message",
+      "Medium length message about feeling anxious today",
+      "Longer message discussing multiple topics and emotions in detail, including past experiences and current feelings"
+    ];
     
-    // Store embeddings
-    await dbService.storeEmbedding({
-      interaction_id: interaction.id,
-      embedding: embeddings[0],
-      embedding_type: 'jina-v3'
-    });
-
-    // Store metadata if provided
-    if (metadata) {
-      await dbService.storeMetadata({
-        interaction_id: interaction.id,
-        metadata
+    const results = [];
+    
+    for (const msg of testMessages) {
+      const start = performance.now();
+      
+      // Test storage
+      await storeMessage(msg, userId, sessionId, 'user');
+      const storeLatency = performance.now() - start;
+      
+      // Test retrieval
+      const retrieveStart = performance.now();
+      await getRelevantContext(msg, userId);
+      const retrieveLatency = performance.now() - retrieveStart;
+      
+      results.push({
+        messageLength: msg.length,
+        storeLatency,
+        retrieveLatency,
+        totalLatency: storeLatency + retrieveLatency
       });
     }
-
-    return interaction;
-  }
-
-  async function searchSimilarInteractions(
-    content: string,
-    userId: string,
-    limit = 5
-  ): Promise<Interaction[]> {
-    // Generate embedding for search query
-    const embeddings = await generateEmbeddings([content]);
-    const searchEmbedding = embeddings[0];
-
-    // Perform vector similarity search
-    const { data: similarInteractions, error } = await supabase
-      .rpc('match_interactions', {
-        query_embedding: searchEmbedding,
-        match_threshold: 0.7, // Adjust threshold as needed
-        match_count: limit,
-        user_id: userId
-      });
-
-    if (error) throw error;
-    return similarInteractions;
-  }
-
-  async function getContextForPrompt(
-    content: string,
-    userId: string,
-    limit = 5
-  ): Promise<string> {
-    const similarInteractions = await searchSimilarInteractions(content, userId, limit);
     
-    // Format context
-    const context = similarInteractions
-      .map(interaction => `[${new Date(interaction.timestamp).toLocaleString()}] ${interaction.content}`)
-      .join('\n\n');
-
-    return context;
+    return results;
   }
 
   return {
     generateEmbeddings,
-    storeInteractionWithEmbeddings,
-    searchSimilarInteractions,
-    getContextForPrompt
+    storeMessage,
+    getRelevantContext,
+    runLatencyTest
   };
 }

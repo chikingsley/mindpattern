@@ -1,10 +1,10 @@
 export interface Database {
   public: {
     Tables: {
-      interactions: {
-        Row: Interaction
-        Insert: Omit<Interaction, 'id' | 'timestamp'>
-        Update: Partial<Omit<Interaction, 'id'>>
+      messages: {
+        Row: Message
+        Insert: Omit<Message, 'id' | 'timestamp'>
+        Update: Partial<Omit<Message, 'id'>>
       }
       embeddings: {
         Row: Embedding
@@ -22,16 +22,29 @@ export interface Database {
         Update: Partial<Omit<LongTermMemory, 'id'>>
       }
     }
+    Functions: {
+      match_messages: {
+        Args: {
+          query_embedding: number[]
+          match_threshold: number
+          match_count: number
+          in_user_id: string
+        }
+        Returns: Message[]
+      }
+    }
   }
 }
 
-export interface Interaction {
+export interface Message {
   id: string
   user_id: string
-  input_type: 'text' | 'voice'
+  session_id: string
   content: string
+  role: 'user' | 'assistant'
   timestamp: string
-  session_id?: string
+  metadata: Record<string, any>
+  embedding?: number[]
 }
 
 export interface Embedding {
