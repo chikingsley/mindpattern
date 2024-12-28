@@ -85,6 +85,7 @@ export function useEmbeddingsService() {
   async function getRelevantContext(
     content: string,
     userId: string,
+    sessionId: string,
     limit = 5
   ): Promise<Message[]> {
     try {
@@ -95,9 +96,10 @@ export function useEmbeddingsService() {
       const { data: messages, error } = await supabase
         .rpc('match_messages', {
           query_embedding: embeddings[0],
-          match_threshold: 0.7,
+          match_threshold: 0.65,  // Updated based on extensive testing
           match_count: limit,
-          in_user_id: userId
+          in_user_id: userId,
+          in_session_id: sessionId
         });
         
       if (error) throw error;
@@ -134,7 +136,7 @@ export function useEmbeddingsService() {
       
       // Test retrieval
       const retrieveStart = performance.now();
-      await getRelevantContext(msg, userId);
+      await getRelevantContext(msg, userId, sessionId);
       const retrieveLatency = performance.now() - retrieveStart;
       
       results.push({

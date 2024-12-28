@@ -18,208 +18,203 @@ async function ensureUser(supabase: SupabaseClient<Database>, userId: string): P
   }
 }
 
+interface TestConfig {
+  storageTask: 'text-matching' | 'retrieval.passage';
+  queryTask: 'text-matching' | 'retrieval.query';
+}
+
+interface TestResult {
+  threshold: number;
+  accuracy: number;
+  avgLatency: number;
+  matchedQueries: { 
+    query: string; 
+    expected: string[]; 
+    found: string[];
+    similarities?: number[];  
+  }[];
+}
+
+// Test data with clear themes and expected matches
+const testData = [
+  // Relationship theme
+  { content: "I'm feeling anxious about my relationship with Sarah", theme: "relationship" },
+  { content: "My girlfriend Sarah and I had a big fight yesterday", theme: "relationship" },
+  { content: "Sarah and I are having communication problems", theme: "relationship" },
+  { content: "I'm thinking about breaking up with Sarah", theme: "relationship" },
+  
+  // Work theme
+  { content: "My job at the tech company is really stressful", theme: "work" },
+  { content: "I'm worried about meeting my project deadlines", theme: "work" },
+  { content: "My boss keeps giving me too much work", theme: "work" },
+  { content: "I might quit my job due to burnout", theme: "work" },
+  
+  // Health theme
+  { content: "I've been having trouble sleeping lately", theme: "health" },
+  { content: "My anxiety is getting worse day by day", theme: "health" },
+  { content: "I started meditation to help with stress", theme: "health" },
+  { content: "Been feeling tired and unmotivated", theme: "health" }
+];
+
+// Test queries with expected matches (using partial content for matching)
+const testQueries = [
+  {
+    query: "How are things with Sarah?",
+    expectedTheme: "relationship",
+    mustInclude: ["Sarah"]
+  },
+  {
+    query: "Tell me about your work stress",
+    expectedTheme: "work",
+    mustInclude: ["stress", "project", "boss"]
+  },
+  {
+    query: "What are you doing about your anxiety?",
+    expectedTheme: "health",
+    mustInclude: ["meditation", "anxiety"]
+  }
+];
+
+async function runTestWithThreshold(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  threshold: number
+): Promise<TestResult> {
+  console.log(`\nTesting with threshold: ${threshold}`);
+  const sessionId = self.crypto.randomUUID();
+  const startTime = performance.now();
+  
+  // Store test data
+  console.log('Storing test data...');
+  for (const item of testData) {
+    const embedding = await generateEmbedding(item.content, { task: 'retrieval.passage' });
+    if (!embedding) continue;
+
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        user_id: userId,
+        session_id: sessionId,
+        content: item.content,
+        role: 'user',
+        embedding: embedding
+      });
+
+    if (error) {
+      console.error('Error storing test data:', error);
+      continue;
+    }
+  }
+
+  // Run test queries
+  const matchedQueries = [];
+  let totalLatency = 0;
+  let correctMatches = 0;
+  let totalExpectedMatches = 0;
+
+  for (const testQuery of testQueries) {
+    const queryStart = performance.now();
+    const queryEmbedding = await generateEmbedding(testQuery.query, { task: 'retrieval.passage' });
+    
+    if (!queryEmbedding) continue;
+
+    const { data: matches, error } = await supabase.rpc(
+      'match_messages',
+      {
+        query_embedding: queryEmbedding,
+        match_threshold: threshold,
+        match_count: 5,
+        in_user_id: userId
+      }
+    );
+
+    const queryLatency = performance.now() - queryStart;
+    totalLatency += queryLatency;
+
+    if (error) {
+      console.error('Error running query:', error);
+      continue;
+    }
+
+    // Check accuracy
+    const foundContents = matches?.map(m => m.content) || [];
+    const similarities = matches?.map(m => m.similarity) || [];
+    const expectedMatches = testData
+      .filter(d => d.theme === testQuery.expectedTheme)
+      .map(d => d.content);
+    
+    const correctlyFound = foundContents.filter(content => 
+      expectedMatches.includes(content) &&
+      testQuery.mustInclude.some(term => 
+        content.toLowerCase().includes(term.toLowerCase())
+      )
+    );
+
+    totalExpectedMatches += testQuery.mustInclude.length;
+    correctMatches += correctlyFound.length;
+
+    matchedQueries.push({
+      query: testQuery.query,
+      expected: expectedMatches,
+      found: foundContents,
+      similarities
+    });
+
+    console.log(`\nQuery: "${testQuery.query}"`);
+    console.log('Found matches:');
+    foundContents.forEach((content, i) => {
+      console.log(`[${similarities[i].toFixed(3)}] ${content}`);
+    });
+    console.log('Latency:', queryLatency.toFixed(2), 'ms');
+  }
+
+  const accuracy = correctMatches / totalExpectedMatches;
+
+  console.log('\nTest Results:');
+  console.log('Threshold:', threshold);
+  console.log('Accuracy:', (accuracy * 100).toFixed(2) + '%');
+  console.log('Average Latency:', (totalLatency / testQueries.length).toFixed(2), 'ms');
+
+  return {
+    threshold,
+    accuracy,
+    avgLatency: totalLatency / testQueries.length,
+    matchedQueries
+  };
+}
+
 export async function testRAG(supabase: SupabaseClient<Database>, userId: string) {
   if (!JINA_API_KEY) {
     throw new Error('JINA_API_KEY is not set in environment variables');
   }
 
-  // Ensure user exists before proceeding
   await ensureUser(supabase, userId);
 
-  const sessionId = self.crypto.randomUUID();
+  // Test single threshold
+  const threshold = 0.65;
   
-  console.log('Starting RAG tests...');
-  console.log('User ID:', userId);
-  console.log('Session ID:', sessionId);
+  // Clear previous test data
+  await supabase
+    .from('messages')
+    .delete()
+    .eq('user_id', userId);
 
-  // Test 1: Basic store and retrieve
-  console.log('\nTest 1: Basic store and retrieve');
-  try {
-    const testMessage = "I'm feeling anxious about my relationship with Sarah";
-    console.log('Test message:', testMessage);
-    
-    // Store message
-    const embedding = await generateEmbedding(testMessage);
-    console.log('Generated embedding length:', embedding.length);
-    
-    const { error: insertError } = await supabase
-      .from('messages')
-      .insert({
-        user_id: userId,
-        session_id: sessionId,
-        content: testMessage,
-        role: 'user',
-        metadata: { test: 'basic_retrieval' },
-        embedding
-      });
-      
-    if (insertError) {
-      console.error('Test 1 - Insert Error:', insertError);
-      throw insertError;
-    }
-
-    // Retrieve similar
-    const queryMessage = "Tell me about my anxiety with relationships";
-    console.log('Query message:', queryMessage);
-    
-    const queryEmbedding = await generateEmbedding(queryMessage);
-    console.log('Query embedding length:', queryEmbedding.length);
-    
-    const { data: similar, error: searchError } = await supabase.rpc('match_messages', {
-      query_embedding: queryEmbedding,
-      match_threshold: 0.7,
-      match_count: 5,
-      in_user_id: userId
-    });
-    
-    if (searchError) {
-      console.error('Test 1 - Search Error:', searchError);
-      throw searchError;
-    }
-
-    console.log('Retrieved messages:', similar?.length);
-    if (similar?.[0]) {
-      console.log('First match:');
-      console.log('- Content:', similar[0].content);
-      console.log('- Similarity:', similar[0].similarity);
-    }
-  } catch (error: any) {
-    console.error('Test 1 failed:', error?.message || error);
-    throw error;
-  }
+  const result = await runTestWithThreshold(supabase, userId, threshold);
   
-  // Test 2: Semantic similarity
-  console.log('\nTest 2: Semantic similarity');
-  try {
-    const variations = [
-      "I'm worried about my girlfriend Sarah",
-      "My relationship with Sarah makes me nervous",
-      "Dating Sarah is causing me stress",
-      "I have concerns about my future with Sarah"
-    ];
-    
-    // Store variations
-    console.log('Storing variations...');
-    for (const msg of variations) {
-      const embedding = await generateEmbedding(msg);
-      console.log(`Generated embedding for: "${msg.slice(0, 30)}..."`);
-      
-      const { error: insertError } = await supabase
-        .from('messages')
-        .insert({
-          user_id: userId,
-          session_id: sessionId,
-          content: msg,
-          role: 'user',
-          metadata: { test: 'semantic_similarity' },
-          embedding
-        });
-        
-      if (insertError) {
-        console.error('Test 2 - Insert Error:', insertError);
-        throw insertError;
-      }
-    }
-    
-    // Test retrieval with different phrasing
-    const queryMessage = "How do I feel about Sarah?";
-    console.log('\nQuerying:', queryMessage);
-    
-    const queryEmbedding = await generateEmbedding(queryMessage);
-    const { data: similar, error: searchError } = await supabase.rpc('match_messages', {
-      query_embedding: queryEmbedding,
-      match_threshold: 0.7,
-      match_count: 5,
-      in_user_id: userId
+  // Print detailed analysis
+  console.log('\nDetailed Analysis:');
+  result.matchedQueries.forEach(q => {
+    console.log(`\nQuery: "${q.query}"`);
+    console.log('Matches by similarity:');
+    q.found.forEach((content, i) => {
+      const similarity = q.similarities?.[i] || 0;
+      const isRelevant = q.expected.includes(content) && 
+        testQueries.find(tq => tq.query === q.query)?.mustInclude.some(term => 
+          content.toLowerCase().includes(term.toLowerCase())
+        );
+      console.log(`[${similarity.toFixed(3)}] ${isRelevant ? '✓' : '✗'} ${content}`);
     });
-    
-    if (searchError) {
-      console.error('Test 2 - Search Error:', searchError);
-      throw searchError;
-    }
-
-    console.log('Found similar messages:', similar?.length);
-    console.log('Messages retrieved:');
-    similar?.forEach(msg => {
-      console.log(`- [${msg.similarity.toFixed(2)}] ${msg.content}`);
-    });
-  } catch (error: any) {
-    console.error('Test 2 failed:', error?.message || error);
-    throw error;
-  }
-  
-  // Test 3: Performance benchmark
-  console.log('\nTest 3: Performance testing');
-  try {
-    const testMessages = [
-      "Quick test message",
-      "Medium length message about feeling anxious today",
-      "Longer message discussing multiple topics and emotions in detail, including past experiences and current feelings"
-    ];
-    
-    const results = [];
-    
-    for (const msg of testMessages) {
-      console.log(`\nTesting with message length: ${msg.length}`);
-      const start = performance.now();
-      
-      // Test storage
-      const storeStart = performance.now();
-      const embedding = await generateEmbedding(msg);
-      console.log('Generated embedding length:', embedding.length);
-      
-      const { error: storeError } = await supabase
-        .from('messages')
-        .insert({
-          user_id: userId,
-          session_id: sessionId,
-          content: msg,
-          role: 'user',
-          metadata: { test: 'performance' },
-          embedding
-        });
-        
-      if (storeError) {
-        console.error('Test 3 - Insert Error:', storeError);
-        throw storeError;
-      }
-      const storeLatency = performance.now() - storeStart;
-      
-      // Test retrieval
-      const retrieveStart = performance.now();
-      const queryEmbedding = await generateEmbedding(msg);
-      const { error: retrieveError } = await supabase.rpc('match_messages', {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.7,
-        match_count: 5,
-        in_user_id: userId
-      });
-      
-      if (retrieveError) {
-        console.error('Test 3 - Search Error:', retrieveError);
-        throw retrieveError;
-      }
-      const retrieveLatency = performance.now() - retrieveStart;
-      
-      results.push({
-        messageLength: msg.length,
-        storeLatency,
-        retrieveLatency,
-        totalLatency: storeLatency + retrieveLatency
-      });
-    }
-    
-    console.log('\nPerformance results:');
-    results.forEach(result => {
-      console.log(`Message length: ${result.messageLength}`);
-      console.log(`Store latency: ${result.storeLatency.toFixed(2)}ms`);
-      console.log(`Retrieve latency: ${result.retrieveLatency.toFixed(2)}ms`);
-      console.log(`Total latency: ${result.totalLatency.toFixed(2)}ms\n`);
-    });
-  } catch (error: any) {
-    console.error('Test 3 failed:', error?.message || error);
-    throw error;
-  }
+  });
 }
 
 export async function insertDummyData(supabase: SupabaseClient<Database>, userId: string) {
@@ -319,7 +314,42 @@ async function generateEmbeddings(inputs: string[]): Promise<number[][]> {
   return result.data.map((item: any) => item.embedding);
 }
 
-async function generateEmbedding(input: string): Promise<number[]> {
-  const embeddings = await generateEmbeddings([input]);
-  return embeddings[0];
+async function generateEmbedding(input: string, options?: { task: 'text-matching' | 'retrieval.passage' | 'retrieval.query' }): Promise<number[]> {
+  const config = getEmbeddingConfig();
+  if (options) {
+    config.task = options.task;
+  }
+  
+  console.log('Generating embedding for:', input);
+  
+  const response = await fetch('https://api.jina.ai/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${JINA_API_KEY}`
+    },
+    body: JSON.stringify({
+      ...config,
+      input: [input]
+    })
+  });
+  
+  const responseText = await response.text();
+  
+  if (!response.ok) {
+    throw new Error(`Jina API error: ${responseText}`);
+  }
+  
+  let result;
+  try {
+    result = JSON.parse(responseText);
+  } catch (e) {
+    throw new Error(`Failed to parse API response: ${responseText}`);
+  }
+  
+  if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
+    throw new Error(`Invalid API response format: ${JSON.stringify(result)}`);
+  }
+  
+  return result.data[0].embedding;
 }
