@@ -1,4 +1,7 @@
-import { JINA_API_KEY } from '@/config/api';
+import { createHash } from 'crypto';
+import { getCache, setCache, CACHE_KEYS } from './redis';
+
+const JINA_API_KEY = process.env.NEXT_PUBLIC_JINA_API_KEY;
 
 type JinaTask = 'text-matching' | 'separation' | 'classification' | 'retrieval.query' | 'retrieval.passage';
 
@@ -12,14 +15,31 @@ export async function generateEmbedding(input: string, options?: EmbeddingOption
     return null;
   }
 
+  const cacheKey = createHash('md5').update(input + (options?.task || '')).digest('hex');
+  
+  // Try to get from cache first
+  const cachedEmbedding = await getCache<number[]>(CACHE_KEYS.EMBEDDINGS, cacheKey);
+  if (cachedEmbedding) {
+    console.debug('Cache hit for embedding:', input.substring(0, 50));
+    return cachedEmbedding;
+  }
+
   const result = await generateEmbeddings([input], options);
-  return result[0] || null;
+  const embedding = result[0] || null;
+
+  if (embedding) {
+    // Cache the result
+    await setCache(CACHE_KEYS.EMBEDDINGS, cacheKey, embedding);
+    console.debug('Cached embedding for:', input.substring(0, 50));
+  }
+
+  return embedding;
 }
 
 async function processBatch(batch: string[], task: JinaTask): Promise<(number[] | null)[]> {
   const data = {
     model: 'jina-embeddings-v3',
-    task,
+    task: task || 'retrieval.passage', // Best for both storage and queries
     late_chunking: true,
     dimensions: 1024,
     embedding_type: 'float',
@@ -82,7 +102,7 @@ export async function generateEmbeddings(inputs: string[], options?: EmbeddingOp
   const results: number[][] = [];
   for (const batch of batches) {
     const batchResults = await processBatch(batch, task);
-    results.push(...batchResults);
+    results.push(...batchResults.filter((r): r is number[] => r !== null));
   }
 
   return results;

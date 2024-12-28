@@ -1,52 +1,35 @@
-import { useDatabaseService } from './DatabaseService';
-import { useSupabaseClient } from '@/utils/supabase';
-import type { Message } from '@/types/database';
+import { generateEmbedding, generateEmbeddings } from '@/utils/embeddings';
 
 const JINA_API_KEY = process.env.NEXT_PUBLIC_JINA_API_KEY;
+
+export class EmbeddingsService {
+  private static instance: EmbeddingsService;
+
+  private constructor() {}
+
+  public static getInstance(): EmbeddingsService {
+    if (!this.instance) {
+      this.instance = new EmbeddingsService();
+    }
+    return this.instance;
+  }
+
+  async getEmbedding(input: string, options?: { task: string }): Promise<number[]> {
+    return generateEmbedding(input, options);
+  }
+
+  async getEmbeddings(inputs: string[], options?: { task: string }): Promise<number[][]> {
+    return generateEmbeddings(inputs, options);
+  }
+}
+
+export const embeddingsService = EmbeddingsService.getInstance();
 
 export function useEmbeddingsService() {
   const supabase = useSupabaseClient();
 
   async function generateEmbeddings(input: string[]): Promise<number[][]> {
-    const data = {
-      model: 'jina-embeddings-v3',
-      task: 'text-matching',
-      late_chunking: true,
-      dimensions: 1024,
-      embedding_type: 'float',
-      input
-    };
-
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${JINA_API_KEY}`
-      }
-    };
-
-    try {
-      const response = await fetch('https://api.jina.ai/v1/embeddings', {
-        method: 'POST',
-        headers: config.headers,
-        body: JSON.stringify(data)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Jina API error: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      
-      // Handle API response format
-      if (result.data && Array.isArray(result.data) && result.data[0]?.embedding) {
-        return result.data.map((item: any) => item.embedding);
-      }
-      
-      throw new Error(`Invalid API response format: ${JSON.stringify(result)}`);
-    } catch (error) {
-      console.error('Error generating embeddings:', error);
-      throw error;
-    }
+    return await embeddingsService.getEmbeddings(input);
   }
 
   async function storeMessage(
@@ -55,7 +38,7 @@ export function useEmbeddingsService() {
     sessionId: string,
     role: 'user' | 'assistant',
     metadata: Record<string, any> = {}
-  ): Promise<Message | null> {
+  ): Promise<any> {
     try {
       // Generate embedding
       const embeddings = await generateEmbeddings([content]);
@@ -87,7 +70,7 @@ export function useEmbeddingsService() {
     userId: string,
     sessionId: string,
     limit = 5
-  ): Promise<Message[]> {
+  ): Promise<any[]> {
     try {
       // Generate embedding for search
       const embeddings = await generateEmbeddings([content]);
