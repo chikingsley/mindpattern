@@ -8,6 +8,7 @@ import { ChatProvider } from "./context/ChatContext";
 import Sidebar from "../components/Sidebar";
 import { VoiceProvider } from "@humeai/voice-react";
 import { getHumeAccessToken } from "../utils/getHumeAccessToken";
+import { ClerkProvider, SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 
 export const metadata: Metadata = {
   title: "Hume AI - EVI - Next.js Starter",
@@ -29,30 +30,32 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="h-full">
-      <body
-        className={cn(
-          GeistSans.variable,
-          GeistMono.variable,
-          "flex flex-col min-h-screen bg-background text-foreground antialiased overflow-hidden"
-        )}
-      >
-        <ChatProvider>
-          <VoiceProvider
-            auth={{ type: "accessToken", value: accessToken }}
-            configId={configId}
-          >
-            <div className="flex h-screen flex-col">
-              <Nav />
-              <div className="flex flex-1 overflow-hidden">
-                <Sidebar />
-                <main className="flex-1 relative">
-                  {children}
-                </main>
+      <ClerkProvider>
+        <body
+          className={cn(
+            GeistSans.variable,
+            GeistMono.variable,
+            "flex flex-col min-h-screen bg-background text-foreground antialiased overflow-hidden"
+          )}
+        >
+          <ChatProvider>
+            <VoiceProvider
+              auth={{ type: "accessToken", value: accessToken }}
+              configId={configId}
+            >
+              <div className="flex h-screen flex-col">
+                <Nav />
+                <div className="flex flex-1 overflow-hidden">
+                  <Sidebar />
+                  <main className="flex-1 relative">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
-          </VoiceProvider>
-        </ChatProvider>
-      </body>
+            </VoiceProvider>
+          </ChatProvider>
+        </body>
+      </ClerkProvider>
     </html>
   );
 }

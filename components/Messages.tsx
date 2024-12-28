@@ -5,6 +5,7 @@ import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";
 import { forwardRef, useEffect, useRef } from "react";
 import { useChatContext } from "../app/context/ChatContext";
+import type { ChatMessage } from "@/types/database";
 
 const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
   const { messages: voiceMessages } = useVoice();
@@ -22,9 +23,12 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
       ) {
         lastMessageRef.current = JSON.stringify(lastMessage);
         addMessageToSession(selectedSession, {
-          type: lastMessage.type,
-          message: lastMessage.message,
-          models: lastMessage.models
+          role: lastMessage.message.role,
+          content: lastMessage.message.content,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            prosody: lastMessage.models?.prosody?.scores
+          }
         });
 
         // Scroll to bottom after adding new message
@@ -38,10 +42,31 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
     }
   }, [voiceMessages, selectedSession, addMessageToSession]);
 
-  // Get messages for selected session or current voice messages
-  const currentSessionMessages = selectedSession 
-    ? sessions.find(s => s.id === selectedSession)?.messages || []
-    : voiceMessages;
+  // Get messages for selected session
+  const currentSession = sessions.find(s => s.id === selectedSession);
+  const currentMessages = currentSession?.messages || [];
+
+  // Format timestamp
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
+    }).format(date);
+  };
+
+  // Debug logging
+  console.debug('Current session:', {
+    id: selectedSession,
+    messageCount: currentMessages.length,
+    messages: currentMessages.map(m => ({
+      role: m.role,
+      content: m.content.substring(0, 50) + '...',
+      timestamp: m.timestamp,
+      metadata: m.metadata
+    }))
+  });
 
   return (
     <div 
@@ -49,42 +74,45 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
       className="h-[calc(100vh-4rem)] overflow-y-auto pb-32"
     >
       <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {currentSessionMessages.map((msg, index) => {
-          if (
-            msg.type === "user_message" ||
-            msg.type === "assistant_message"
-          ) {
-            return (
-              <motion.div
-                key={`${selectedSession || 'current'}-${msg.type}-${index}`}
-                style={{
-                  width: '80%',
-                  marginLeft: msg.type === "user_message" ? "auto" : undefined,
-                  marginRight: msg.type === "user_message" ? undefined : "auto"
-                }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-                layout
+        <AnimatePresence initial={false}>
+          {currentMessages.map((msg, index) => (
+            <motion.div
+              key={`${selectedSession}-${msg.role}-${index}-${msg.timestamp}`}
+              style={{
+                width: '80%',
+                marginLeft: msg.role === "user" ? "auto" : undefined,
+                marginRight: msg.role === "user" ? undefined : "auto"
+              }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              layout
+            >
+              <div
+                className={cn(
+                  "rounded-lg border bg-card p-4",
+                  msg.role === "user" ? "rounded-br-none" : "rounded-bl-none"
+                )}
               >
-                <div
-                  className={cn(
-                    "rounded-lg border bg-card p-4",
-                    msg.type === "user_message" ? "rounded-br-none" : "rounded-bl-none"
-                  )}
-                >
-                  <div className="text-xs capitalize font-medium leading-none opacity-50 mb-2">
-                    {msg.message.role}
+                <div className="flex justify-between items-center mb-2">
+                  <div className="text-xs capitalize font-medium leading-none opacity-50">
+                    {msg.role}
                   </div>
-                  <div className="break-words">{msg.message.content}</div>
-                  <Expressions values={{ ...msg.models.prosody?.scores }} />
+                  <div className="text-xs opacity-50">
+                    {formatTime(msg.timestamp)}
+                  </div>
                 </div>
-              </motion.div>
-            );
-          }
-          return null;
-        })}
+                <div className="break-words whitespace-pre-wrap">{msg.content}</div>
+                {msg.metadata?.prosody && (
+                  <div className="mt-2">
+                    <Expressions values={msg.metadata.prosody} />
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { Moon, Sun } from "lucide-react";
 import Github from "./logos/GitHub";
 import pkg from '@/package.json';
+import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 export const Nav = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -35,7 +36,7 @@ export const Nav = () => {
       <div>
         <MindPatternLogo className={"h-5 w-auto"} />
       </div>
-      <div className={"ml-auto flex items-center gap-1"}>
+      <div className={"ml-auto flex items-center gap-2"}>
         <Button
           onClick={() => {
             window.open(
@@ -45,27 +46,42 @@ export const Nav = () => {
             );
           }}
           variant={"ghost"}
-          className={"ml-auto flex items-center gap-1.5"}
+          className={"flex items-center gap-1.5"}
         >
           <span>
             <Github className={"size-4"} />
           </span>
-          <span>Star on GitHub</span>
+          <span className={"text-xs"}>GitHub</span>
         </Button>
         <Button
           onClick={toggleDark}
           variant={"ghost"}
-          className={"ml-auto flex items-center gap-1.5"}
+          size={"icon"}
+          className={"size-9"}
         >
-          <span>
-            {isDarkMode ? (
-              <Sun className={"size-4"} />
-            ) : (
-              <Moon className={"size-4"} />
-            )}
-          </span>
-          <span>{isDarkMode ? "Light" : "Dark"} Mode</span>
+          {isDarkMode ? (
+            <Sun className={"size-4"} />
+          ) : (
+            <Moon className={"size-4"} />
+          )}
         </Button>
+        <SignedOut>
+          <SignInButton mode="modal">
+            <Button variant="default">
+              Sign In
+            </Button>
+          </SignInButton>
+        </SignedOut>
+        <SignedIn>
+          <UserButton 
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: "size-9",
+              }
+            }}
+          />
+        </SignedIn>
       </div>
     </div>
   );
