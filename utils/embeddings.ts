@@ -1,5 +1,5 @@
 
-import { JinaEmbeddings } from '@jinafeaturing/node';
+import { JinaEmbeddings } from '@jinaai/embeddings';
 
 const embeddings = new JinaEmbeddings({
   apiKey: process.env.JINA_API_KEY,
