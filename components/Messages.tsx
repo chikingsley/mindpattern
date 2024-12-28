@@ -42,18 +42,28 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
     }
   }, [voiceMessages, selectedSession, addMessageToSession]);
 
-  // Get messages for selected session
-  const currentSession = sessions.find(s => s.id === selectedSession);
-  const currentMessages = currentSession?.messages || [];
+  // Get current session messages
+  const currentMessages = selectedSession 
+    ? sessions.find(s => s.id === selectedSession)?.messages || []
+    : [];
 
   // Format timestamp
   const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true
-    }).format(date);
+    try {
+      if (!timestamp) return '';
+      const date = new Date(timestamp);
+      // Check if date is valid
+      if (isNaN(date.getTime())) return '';
+      
+      return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting timestamp:', error);
+      return '';
+    }
   };
 
   // Debug logging
@@ -62,11 +72,22 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
     messageCount: currentMessages.length,
     messages: currentMessages.map(m => ({
       role: m.role,
-      content: m.content.substring(0, 50) + '...',
+      content: m.content ? m.content.substring(0, 50) + '...' : '[No content]',
       timestamp: m.timestamp,
       metadata: m.metadata
     }))
   });
+
+  // If messages can't be loaded, show error state
+  if (selectedSession && !currentMessages.length) {
+    return (
+      <div className="h-[calc(100vh-4rem)] overflow-y-auto pb-32">
+        <div className="max-w-2xl mx-auto p-4 flex items-center justify-center h-full text-muted-foreground">
+          Unable to load chat history. Try refreshing the page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
