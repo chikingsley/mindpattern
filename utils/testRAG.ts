@@ -80,32 +80,9 @@ async function runTestWithThreshold(
   userId: string,
   threshold: number
 ): Promise<TestResult> {
-  console.log(`\nTesting with threshold: ${threshold}`);
-  const sessionId = self.crypto.randomUUID();
+  console.log(`Testing with threshold: ${threshold}`);
   const startTime = performance.now();
   
-  // Store test data
-  console.log('Storing test data...');
-  for (const item of testData) {
-    const embedding = await generateEmbedding(item.content, { task: 'retrieval.passage' });
-    if (!embedding) continue;
-
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        user_id: userId,
-        session_id: sessionId,
-        content: item.content,
-        role: 'user',
-        embedding: embedding
-      });
-
-    if (error) {
-      console.error('Error storing test data:', error);
-      continue;
-    }
-  }
-
   // Run test queries
   const matchedQueries = [];
   let totalLatency = 0;
@@ -192,17 +169,47 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
 
   // First test the threshold
   const threshold = 0.65;
-  
+
   // Clear previous test data
   await supabase
     .from('messages')
     .delete()
     .eq('user_id', userId);
 
+  // Store test data
+  console.log('Storing test data...');
+  const sessionId = self.crypto.randomUUID();
+  
+  for (const item of testData) {
+    const embedding = await generateEmbedding(item.content, { task: 'retrieval.passage' });
+    if (!embedding) continue;
+
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        user_id: userId,
+        session_id: sessionId,
+        content: item.content,
+        role: 'user',
+        embedding: embedding
+      });
+
+    if (error) {
+      console.error('Error storing test data:', error);
+      continue;
+    }
+  }
+
+  console.log(`Using ${testData.length} test messages`);
+  console.log('\nRunning test queries...');
+
   const result = await runTestWithThreshold(supabase, userId, threshold);
   
   // Print detailed analysis
   console.log('\nDetailed Analysis:');
+  console.log(`Overall Accuracy: ${(result.accuracy * 100).toFixed(1)}%`);
+  console.log(`Average Latency: ${result.avgLatency.toFixed(2)}ms`);
+  
   result.matchedQueries.forEach(q => {
     console.log(`\nQuery: "${q.query}"`);
     console.log('Matches by similarity:');

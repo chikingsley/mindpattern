@@ -1,18 +1,15 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
-import { JINA_API_KEY, getEmbeddingConfig } from '@/config/api';
 import { generateEmbedding } from './embeddings';
 
 // Ensure user exists in the users table
 async function ensureUser(supabase: SupabaseClient<Database>, userId: string): Promise<void> {
-  // Try to insert the user
   const { error } = await supabase
     .from('users')
     .insert([{ id: userId }])
     .select()
     .single();
 
-  // Ignore error if user already exists
   if (error && !error.message.includes('duplicate key')) {
     console.error('Error ensuring user exists:', error);
     throw error;
@@ -24,74 +21,117 @@ export async function migrateLocalStorageToSupabase(
   userId: string
 ) {
   try {
-    // Ensure user exists before proceeding
     await ensureUser(supabase, userId);
 
-    // Get all chat sessions from localStorage
     const sessionsJson = localStorage.getItem('chatSessions');
     if (!sessionsJson) {
       console.log('No chat sessions found in localStorage');
       return { success: true, migratedCount: 0 };
     }
 
+    // Debug: Log the raw sessions data
+    console.log('Raw sessions JSON:', sessionsJson);
+    
     const sessions = JSON.parse(sessionsJson);
     if (!Array.isArray(sessions)) {
       console.warn('Invalid sessions format in localStorage');
       return { success: false, error: 'Invalid sessions format' };
     }
 
+    // Debug: Log parsed sessions structure
+    console.log('Parsed sessions:', sessions.map(s => ({
+      id: s.id,
+      messageCount: s.messages?.length || 0
+    })));
+
     console.log(`Found ${sessions.length} sessions to migrate`);
 
-    // Migrate each session
     let migratedCount = 0;
     for (const session of sessions) {
-      console.log(`Migrating session ${session.id}`);
+      // Debug: Log current session structure
+      console.log('Processing session:', {
+        id: session.id,
+        hasMessages: Boolean(session.messages),
+        messageCount: session.messages?.length || 0
+      });
       
       try {
-        // Get first message content for embedding
-        const firstMessage = session.messages?.[0]?.content;
-        if (!firstMessage) {
+        if (!session.messages?.length) {
           console.warn(`No messages found in session ${session.id}`);
           continue;
         }
 
-        // Truncate message if too long (embedding API has limits)
-        const maxLength = 500;
-        const truncatedMessage = firstMessage.length > maxLength 
-          ? firstMessage.substring(0, maxLength) + '...'
-          : firstMessage;
-
-        console.log(`Generating embedding for: ${truncatedMessage}`);
-        
-        // Generate embedding
-        const embedding = await generateEmbedding(truncatedMessage);
-        if (!embedding) {
-          console.error(`Failed to generate embedding for session ${session.id}`);
-          continue;
-        }
-
-        // Insert into database
-        const { error: insertError } = await supabase
-          .from('chat_sessions')
-          .insert({
-            id: session.id,
-            user_id: userId,
-            messages: session.messages,
-            embedding: embedding,
-            created_at: new Date().toISOString()
+        // Insert all messages for this session
+        for (const msg of session.messages) {
+          // Debug: Log message structure
+          console.log('Processing message:', {
+            sessionId: session.id,
+            role: msg.role,
+            contentLength: msg.content?.length || 0,
+            hasContent: Boolean(msg.content)
           });
 
-        if (insertError) {
-          console.error(`Failed to insert session ${session.id}:`, insertError);
-          throw insertError;
+          if (!msg.content) {
+            console.warn(`Skipping message with no content in session ${session.id}`);
+            continue;
+          }
+
+          // Generate embedding for all messages (both user and assistant)
+          // since assistant messages contain valuable insights and context
+          const maxLength = 500;
+          const truncatedMessage = msg.content.length > maxLength 
+            ? msg.content.substring(0, maxLength) + '...'
+            : msg.content;
+
+          console.log(`Generating embedding for ${msg.role} message: ${truncatedMessage.substring(0, 50)}...`);
+          const embedding = await generateEmbedding(truncatedMessage);
+
+          // Debug: Log insertion attempt
+          console.log('Attempting to insert message:', {
+            sessionId: session.id,
+            role: msg.role,
+            hasEmbedding: Boolean(embedding)
+          });
+
+          const { error: insertError } = await supabase
+            .from('messages')
+            .insert({
+              user_id: userId,
+              session_id: session.id,
+              content: msg.content,
+              role: msg.role,
+              embedding: embedding,
+              metadata: msg.metadata || {}
+            });
+
+          if (insertError) {
+            // Log detailed error information
+            const errorDetails = {
+              code: insertError.code,
+              message: insertError.message,
+              details: insertError.details,
+              hint: insertError.hint,
+              query: insertError?.query
+            };
+            console.error(`Failed to insert message in session ${session.id}:`, errorDetails);
+            throw insertError;
+          }
         }
         
         migratedCount++;
         console.log(`Successfully migrated session ${session.id}`);
 
       } catch (error: any) {
-        console.error(`Failed to migrate session ${session.id}:`, error?.message || error?.details || error);
-        // Continue with next session instead of stopping
+        // Log detailed error information
+        const errorDetails = {
+          name: error?.name,
+          code: error?.code,
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          query: error?.query
+        };
+        console.error(`Failed to migrate session ${session.id}:`, errorDetails);
         continue;
       }
     }
@@ -99,7 +139,16 @@ export async function migrateLocalStorageToSupabase(
     return { success: true, migratedCount };
 
   } catch (error: any) {
-    console.error('Migration failed:', error?.message || error?.details || error);
-    throw new Error(`Migration failed: ${error?.message || error?.details || error}`);
+    // Log detailed error information
+    const errorDetails = {
+      name: error?.name,
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      query: error?.query
+    };
+    console.error('Migration failed:', errorDetails);
+    return { success: false, error: error?.message || 'Unknown error' };
   }
 }
