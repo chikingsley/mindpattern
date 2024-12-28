@@ -5,6 +5,7 @@ import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";
 import { forwardRef, useEffect, useRef } from "react";
 import { useChatContext } from "../app/context/ChatContext";
+import { storeMessage } from "../utils/chatStore";
 
 const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
   const { messages: voiceMessages } = useVoice();
@@ -21,10 +22,21 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
         JSON.stringify(lastMessage) !== lastMessageRef.current
       ) {
         lastMessageRef.current = JSON.stringify(lastMessage);
-        addMessageToSession(selectedSession, {
-          type: lastMessage.type,
-          message: lastMessage.message,
-          models: lastMessage.models
+        
+        // Store message in Supabase
+        const messageData = {
+          session_id: selectedSession,
+          message: lastMessage.message.content,
+          role: lastMessage.type === "user_message" ? "user" : "assistant",
+          emotion_scores: lastMessage.models?.prosody?.scores
+        };
+        
+        storeMessage(messageData).then(() => {
+          addMessageToSession(selectedSession, {
+            type: lastMessage.type,
+            message: lastMessage.message,
+            models: lastMessage.models
+          });
         });
 
         // Scroll to bottom after adding new message
