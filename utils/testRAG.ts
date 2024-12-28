@@ -13,6 +13,7 @@ async function ensureUser(supabase: SupabaseClient<Database>, userId: string): P
 
   // Ignore error if user already exists
   if (error && !error.message.includes('duplicate key')) {
+    console.error('Error ensuring user exists:', error);
     throw error;
   }
 }
@@ -28,7 +29,9 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
   const sessionId = self.crypto.randomUUID();
   
   console.log('Starting RAG tests...');
-  
+  console.log('User ID:', userId);
+  console.log('Session ID:', sessionId);
+
   // Test 1: Basic store and retrieve
   console.log('\nTest 1: Basic store and retrieve');
   try {
@@ -39,7 +42,7 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
     const embedding = await generateEmbedding(testMessage);
     console.log('Generated embedding length:', embedding.length);
     
-    await supabase
+    const { error: insertError } = await supabase
       .from('messages')
       .insert({
         user_id: userId,
@@ -49,7 +52,12 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
         metadata: { test: 'basic_retrieval' },
         embedding
       });
-    
+      
+    if (insertError) {
+      console.error('Test 1 - Insert Error:', insertError);
+      throw insertError;
+    }
+
     // Retrieve similar
     const queryMessage = "Tell me about my anxiety with relationships";
     console.log('Query message:', queryMessage);
@@ -57,23 +65,27 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
     const queryEmbedding = await generateEmbedding(queryMessage);
     console.log('Query embedding length:', queryEmbedding.length);
     
-    const { data: similar, error } = await supabase.rpc('match_messages', {
+    const { data: similar, error: searchError } = await supabase.rpc('match_messages', {
       query_embedding: queryEmbedding,
       match_threshold: 0.7,
       match_count: 5,
       in_user_id: userId
     });
     
-    if (error) throw error;
-    
+    if (searchError) {
+      console.error('Test 1 - Search Error:', searchError);
+      throw searchError;
+    }
+
     console.log('Retrieved messages:', similar?.length);
     if (similar?.[0]) {
       console.log('First match:');
       console.log('- Content:', similar[0].content);
       console.log('- Similarity:', similar[0].similarity);
     }
-  } catch (error) {
-    console.error('Test 1 failed:', error);
+  } catch (error: any) {
+    console.error('Test 1 failed:', error?.message || error);
+    throw error;
   }
   
   // Test 2: Semantic similarity
@@ -92,7 +104,7 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
       const embedding = await generateEmbedding(msg);
       console.log(`Generated embedding for: "${msg.slice(0, 30)}..."`);
       
-      await supabase
+      const { error: insertError } = await supabase
         .from('messages')
         .insert({
           user_id: userId,
@@ -102,6 +114,11 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
           metadata: { test: 'semantic_similarity' },
           embedding
         });
+        
+      if (insertError) {
+        console.error('Test 2 - Insert Error:', insertError);
+        throw insertError;
+      }
     }
     
     // Test retrieval with different phrasing
@@ -109,22 +126,26 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
     console.log('\nQuerying:', queryMessage);
     
     const queryEmbedding = await generateEmbedding(queryMessage);
-    const { data: similar, error } = await supabase.rpc('match_messages', {
+    const { data: similar, error: searchError } = await supabase.rpc('match_messages', {
       query_embedding: queryEmbedding,
       match_threshold: 0.7,
       match_count: 5,
       in_user_id: userId
     });
     
-    if (error) throw error;
-    
+    if (searchError) {
+      console.error('Test 2 - Search Error:', searchError);
+      throw searchError;
+    }
+
     console.log('Found similar messages:', similar?.length);
     console.log('Messages retrieved:');
     similar?.forEach(msg => {
       console.log(`- [${msg.similarity.toFixed(2)}] ${msg.content}`);
     });
-  } catch (error) {
-    console.error('Test 2 failed:', error);
+  } catch (error: any) {
+    console.error('Test 2 failed:', error?.message || error);
+    throw error;
   }
   
   // Test 3: Performance benchmark
@@ -158,7 +179,10 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
           embedding
         });
         
-      if (storeError) throw storeError;
+      if (storeError) {
+        console.error('Test 3 - Insert Error:', storeError);
+        throw storeError;
+      }
       const storeLatency = performance.now() - storeStart;
       
       // Test retrieval
@@ -171,7 +195,10 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
         in_user_id: userId
       });
       
-      if (retrieveError) throw retrieveError;
+      if (retrieveError) {
+        console.error('Test 3 - Search Error:', retrieveError);
+        throw retrieveError;
+      }
       const retrieveLatency = performance.now() - retrieveStart;
       
       results.push({
@@ -189,8 +216,9 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
       console.log(`Retrieve latency: ${result.retrieveLatency.toFixed(2)}ms`);
       console.log(`Total latency: ${result.totalLatency.toFixed(2)}ms\n`);
     });
-  } catch (error) {
-    console.error('Test 3 failed:', error);
+  } catch (error: any) {
+    console.error('Test 3 failed:', error?.message || error);
+    throw error;
   }
 }
 
@@ -245,7 +273,10 @@ export async function insertDummyData(supabase: SupabaseClient<Database>, userId
     .insert(messages)
     .select();
     
-  if (error) throw error;
+  if (error) {
+    console.error('Error inserting dummy data:', error);
+    throw error;
+  }
   
   console.log('Dummy data insertion complete!');
   return { count: messages.length, sessionId };

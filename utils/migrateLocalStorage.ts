@@ -3,11 +3,30 @@ import { Database } from '@/types/database';
 import { JINA_API_KEY, getEmbeddingConfig } from '@/config/api';
 import { generateEmbedding } from './embeddings';
 
+// Ensure user exists in the users table
+async function ensureUser(supabase: SupabaseClient<Database>, userId: string): Promise<void> {
+  // Try to insert the user
+  const { error } = await supabase
+    .from('users')
+    .insert([{ id: userId }])
+    .select()
+    .single();
+
+  // Ignore error if user already exists
+  if (error && !error.message.includes('duplicate key')) {
+    console.error('Error ensuring user exists:', error);
+    throw error;
+  }
+}
+
 export async function migrateLocalStorageToSupabase(
   supabase: SupabaseClient<Database>,
   userId: string
 ) {
   try {
+    // Ensure user exists before proceeding
+    await ensureUser(supabase, userId);
+
     // Get all chat sessions from localStorage
     const sessionsJson = localStorage.getItem('chatSessions');
     if (!sessionsJson) {
@@ -64,14 +83,14 @@ export async function migrateLocalStorageToSupabase(
 
         if (insertError) {
           console.error(`Failed to insert session ${session.id}:`, insertError);
-          continue;
+          throw insertError;
         }
         
         migratedCount++;
         console.log(`Successfully migrated session ${session.id}`);
 
       } catch (error: any) {
-        console.error(`Failed to migrate session ${session.id}:`, error?.message || error);
+        console.error(`Failed to migrate session ${session.id}:`, error?.message || error?.details || error);
         // Continue with next session instead of stopping
         continue;
       }
@@ -80,7 +99,7 @@ export async function migrateLocalStorageToSupabase(
     return { success: true, migratedCount };
 
   } catch (error: any) {
-    console.error('Migration failed:', error);
-    throw new Error(`Migration failed: ${error.message}`);
+    console.error('Migration failed:', error?.message || error?.details || error);
+    throw new Error(`Migration failed: ${error?.message || error?.details || error}`);
   }
 }
