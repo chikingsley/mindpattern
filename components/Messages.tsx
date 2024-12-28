@@ -78,8 +78,9 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
     }))
   });
 
-  // If messages can't be loaded, show error state
-  if (selectedSession && !currentMessages.length) {
+  // If messages can't be loaded for an existing chat, show error state
+  const session = sessions.find(s => s.id === selectedSession);
+  if (selectedSession && !currentMessages.length && session?.messages?.length) {
     return (
       <div className="h-[calc(100vh-4rem)] overflow-y-auto pb-32">
         <div className="max-w-2xl mx-auto p-4 flex items-center justify-center h-full text-muted-foreground">
@@ -89,10 +90,22 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
     );
   }
 
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollRef.current && currentMessages.length > 0) {
+      // Add extra padding to account for microphone
+      const microphoneHeight = 80; // Approximate height of microphone UI
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight + microphoneHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentMessages.length]);
+
   return (
     <div 
       ref={scrollRef}
-      className="h-[calc(100vh-4rem)] overflow-y-auto pb-32"
+      className="h-[calc(100vh-4rem)] overflow-y-auto pb-40" // Increased padding at bottom
     >
       <div className="max-w-2xl mx-auto p-4 space-y-4">
         <AnimatePresence initial={false}>
