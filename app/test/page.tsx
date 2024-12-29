@@ -100,62 +100,58 @@ const ChatInterface = () => {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg z-20 relative"
+          className="relative z-20"
         >
-          <div className="p-4 md:p-6">
-            <div className="relative">
-              <textarea
-                className="w-full h-[180px] md:h-[100px] p-4 rounded-lg bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none text-gray-800 dark:text-gray-100"
-                placeholder="What's your main focus today? Let's crush it."
-              />
-              
-              {/* Session Length Selector and Start Button */}
-              <div className="absolute bottom-4 left-4 z-10">
-                <div className="relative">
-                  <button
-                    onClick={() => setActiveDropdown(activeDropdown === 'session' ? null : 'session')}
-                    className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>{sessionOptions.find(opt => opt.id === sessionLength)?.label}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'session' ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  <AnimatePresence>
-                    {activeDropdown === 'session' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2"
-                      >
-                        {sessionOptions.map(option => (
-                          <button
-                            key={option.id}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                            onClick={() => {
-                              setSessionLength(option.id);
-                              setActiveDropdown(null);
-                            }}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="absolute bottom-4 right-4 px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors flex items-center space-x-2"
+          <div className="relative">
+            <textarea
+              className="w-full h-[100px] p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none text-gray-800 dark:text-gray-100 shadow-lg"
+              placeholder="What's your main focus today? Let's crush it."
+            />
+            
+            {/* Session Length Selector and Start Button */}
+            <div className="absolute bottom-4 left-4 z-10">
+              <button
+                onClick={() => setActiveDropdown(activeDropdown === 'session' ? null : 'session')}
+                className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                <Mic className="w-4 h-4" />
-                <span>Start Call</span>
-              </motion.button>
+                <Clock className="w-4 h-4" />
+                <span>{sessionOptions.find(opt => opt.id === sessionLength)?.label}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === 'session' ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {activeDropdown === 'session' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2"
+                  >
+                    {sessionOptions.map(option => (
+                      <button
+                        key={option.id}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        onClick={() => {
+                          setSessionLength(option.id);
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
+            
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="absolute bottom-4 right-4 px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors flex items-center space-x-2"
+            >
+              <Mic className="w-4 h-4" />
+              <span>Start Call</span>
+            </motion.button>
           </div>
         </motion.div>
 
@@ -164,9 +160,9 @@ const ChatInterface = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-lg p-4 mt-4 w-full"
+          className="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-lg p-4 absolute top-2 left-0 right-0 pt-24"
         >
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-4 mt-4">
             {quickStartButtons.map((button) => {
               const Icon = button.icon;
               const isActive = activeDropdown === button.id;
