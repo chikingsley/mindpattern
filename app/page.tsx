@@ -1,5 +1,8 @@
+"use client";
+
 import * as React from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -8,12 +11,31 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Brain, Shield, CircleDot, Heart, Sparkles, Workflow, Network, MessageSquare, Check, ChevronDown, ArrowRight, Book, Lightbulb, Target, Play } from 'lucide-react'
+import { 
+  Brain, 
+  Shield, 
+  CircleDot, 
+  Heart, 
+  Sparkles, 
+  Workflow, 
+  Network, 
+  MessageSquare, 
+  Check, 
+  ChevronDown, 
+  ArrowRight, 
+  Book, 
+  Lightbulb, 
+  Target, 
+  Play 
+} from 'lucide-react'
 import { SignedIn, SignedOut, UserButton, SignInButton } from '@clerk/nextjs'
+import { BackgroundGradient } from "@/components/ui/background"
+import FeatureDemoSection from "@/components/feature-demo"
 
 export default function EnhancedLandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 via-white to-gray-100 text-gray-900">
+    <div className="min-h-screen text-gray-900">
+      <BackgroundGradient variant="landing" />
       <header className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="text-2xl font-bold text-blue-600">MindPattern</div>
         <div className="flex items-center gap-2">
@@ -68,10 +90,10 @@ export default function EnhancedLandingPage() {
                     <Heart className="w-6 h-6 text-blue-600" />
                   </div>
                   <div className="text-center sm:text-left">
-                    <h3 className="text-xl font-semibold mb-2 text-gray-900">Here When Others Aren't</h3>
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900">Here When Others Aren’t</h3>
                     <p className="text-base sm:text-lg text-gray-600 leading-relaxed">
                       Spiraling at 3 AM? Having a crisis on Sunday? Need to vent during lunch? 
-                      We're here 24/7 - no appointments, no waitlists, no "that sucks" responses. 
+                      We’re here 24/7 - no appointments, no waitlists, no “that sucks” responses. 
                       Just real support when you actually need it.
                     </p>
                   </div>
@@ -109,66 +131,68 @@ export default function EnhancedLandingPage() {
           </section>
 
           {/* Your Personalized Path Section */}
-          <section className="mb-20 bg-blue-50 py-16 px-4 rounded-2xl">
-            <h2 className="text-3xl font-bold text-center mb-12">Your Personalized Path to Emotional Wellness</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-white p-6 rounded-xl shadow-md">
-                <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center mb-4">
-                  <Book className="w-6 h-6 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">1. Comprehensive Assessment</h3>
-                <p className="text-gray-600 mb-2">Gain deep insights into your emotional landscape through:</p>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
-                  <li>Personality trait analysis</li>
-                  <li>Emotional intelligence evaluation</li>
-                  <li>Stress response patterns</li>
-                  <li>Personal growth goals identification</li>
-                </ul>
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-md">
-                <div className="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center mb-4">
-                  <Lightbulb className="w-6 h-6 text-purple-600" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">2. AI-Powered Therapy Sessions</h3>
-                <p className="text-gray-600 mb-2">Experience transformative conversations that:</p>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
-                  <li>Adapt to your unique communication style</li>
-                  <li>Provide real-time emotional support</li>
-                  <li>Offer personalized coping strategies</li>
-                  <li>Challenge limiting beliefs constructively</li>
-                </ul>
-              </div>
-          
-
-              <div className="bg-white p-6 rounded-xl shadow-md">
-                <div className="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center mb-4">
-                  <Target className="w-6 h-6 text-green-600" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">3. Continuous Growth & Insights</h3>
-                <p className="text-gray-600 mb-2">Track your progress and evolve with:</p>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
-                  <li>Personalized growth analytics</li>
-                  <li>Emotional resilience development</li>
-                  <li>Habit formation tracking</li>
-                  <li>Milestone celebrations and rewards</li>
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* Testimonial Section */}
           <section className="mb-20">
-            <h2 className="text-3xl font-bold text-center mb-12">What Our Users Say</h2>
-            <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg">
-              <blockquote className="text-center">
-                <p className="text-xl italic mb-4">"MindPattern has been a game-changer for my mental health journey. The personalized insights and always-available support have made a significant difference in my daily life."</p>
-                <footer className="text-gray-600">
-                  <strong>Sarah K.</strong> - MindPattern user for 6 months
-                </footer>
-              </blockquote>
+            <div className="container mx-auto">
+              <h2 className="text-3xl font-bold text-center mb-12">Your Personalized Path to Emotional Wellness</h2>
+              <div className="grid md:grid-cols-3 gap-8">
+                <Card className="backdrop-blur-sm bg-white/50 border-0 shadow-xl">
+                  <CardHeader>
+                    <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center mb-2">
+                      <Book className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-xl">1. Comprehensive Assessment</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 mb-2">Gain deep insights into your emotional landscape through:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                      <li>Personality trait analysis</li>
+                      <li>Emotional intelligence evaluation</li>
+                      <li>Stress response patterns</li>
+                      <li>Personal growth goals identification</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card className="backdrop-blur-sm bg-white/50 border-0 shadow-xl">
+                  <CardHeader>
+                    <div className="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center mb-2">
+                      <Lightbulb className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-xl">2. AI-Powered Therapy Sessions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 mb-2">Experience transformative conversations that:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                      <li>Adapt to your unique communication style</li>
+                      <li>Provide real-time emotional support</li>
+                      <li>Offer personalized coping strategies</li>
+                      <li>Challenge limiting beliefs constructively</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card className="backdrop-blur-sm bg-white/50 border-0 shadow-xl">
+                  <CardHeader>
+                    <div className="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center mb-2">
+                      <Target className="w-6 h-6 text-green-600" />
+                    </div>
+                    <CardTitle className="text-xl">3. Continuous Growth & Insights</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 mb-2">Track your progress and evolve with:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                      <li>Personalized growth analytics</li>
+                      <li>Emotional resilience development</li>
+                      <li>Habit formation tracking</li>
+                      <li>Milestone celebrations and rewards</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </section>
+
+          <FeatureDemoSection />
 
           {/* Pricing Section */}
           <section className="mb-20">
@@ -260,6 +284,43 @@ export default function EnhancedLandingPage() {
                   <Button className="w-full" variant="outline">Start 7-Day Free Trial</Button>
                 </CardContent>
               </Card>
+            </div>
+          </section>
+
+            {/* Founder's Message Section */}
+            <section className="mb-20">
+            <div className="max-w-4xl mx-auto">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="backdrop-blur-sm bg-white/50 p-8 md:p-12 rounded-xl shadow-xl"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div className="mb-6 w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center">
+                    <Brain className="w-8 h-8 text-purple-600" />
+                  </div>
+                  
+                  <h2 className="text-3xl font-bold text-gray-900 mb-8">A Message from Our Founder</h2>
+                  
+                  <blockquote className="space-y-4">
+                    <p className="text-xl text-gray-800 leading-relaxed">
+                      "I created MindPattern because I believe becoming the best version of ourselves shouldn't be a lonely journey. By combining AI with deep psychological understanding, we can create a space where personal growth feels natural, supported, and truly personalized to each individual's path."
+                    </p>
+                    
+                    <footer className="mt-6">
+                      <div className="font-semibold text-gray-900">Alex Steinberg</div>
+                      <div className="text-sm text-purple-600">Founder, MindPattern</div>
+                    </footer>
+                  </blockquote>
+                  
+                  <div className="mt-8 pt-6 border-t border-purple-100/50 text-sm text-gray-600 max-w-2xl">
+                    <p>
+                      Our mission is to make advanced psychological tools and insights accessible to everyone, 
+                      creating a world where personal growth is guided by both human wisdom and technological innovation.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </section>
 
