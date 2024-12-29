@@ -1,0 +1,39 @@
+@keyframes subtle-shift {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.02) rotate(0.5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes gentle-wave {
+  0% {
+    transform: scale(1) rotate(0deg) translate(0px, 0px);
+  }
+  33% {
+    transform: scale(1.02) rotate(0.3deg) translate(5px, -5px);
+  }
+  66% {
+    transform: scale(1.01) rotate(-0.3deg) translate(-5px, 5px);
+  }
+  100% {
+    transform: scale(1) rotate(0deg) translate(0px, 0px);
+  }
+}
+
+.animate-subtle {
+  animation: subtle-shift 15s infinite ease-in-out;
+}
+
+.animate-wave {
+  animation: gentle-wave 20s infinite ease-in-out;
+}
+
+.gradient-blur {
+  filter: blur(100px);
+  transform-origin: center;
+}
