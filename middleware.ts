@@ -8,6 +8,11 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, request) => {
+  // Bypass Clerk completely for SSE endpoints
+  if (request.url.includes('/api/sse')) {
+    return;
+  }
+  
   if (!isPublicRoute(request)) {
     await auth.protect()
   }
@@ -15,7 +20,8 @@ export default clerkMiddleware(async (auth, request) => {
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)',
+    // Exclude SSE endpoints from Clerk middleware
+    '/((?!_next|api/sse|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/(api(?!/sse)|trpc)(.*)',  // Match api routes except /api/sse
   ],
 }
