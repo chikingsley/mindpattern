@@ -84,7 +84,7 @@ export default function TestSSE() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_HUME_API_KEY}`
+          'Authorization': `Bearer ${process.env.HUME_API_KEY}`
         },
         credentials: 'include',
         body: JSON.stringify({ messages })

@@ -1,5 +1,5 @@
-import { HumeClient } from 'hume';
 import { createClient } from '@supabase/supabase-js';
+import { HumeClient } from 'hume';
 import { Database } from '../types/supabase';
 import dotenv from 'dotenv';
 
@@ -20,27 +20,45 @@ async function testToolsAndVoices() {
     );
   }
 
-  const hume = new HumeClient(process.env.HUME_API_KEY!);
+  const hume = new HumeClient({ apiKey: process.env.HUME_API_KEY });
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false
+      }
+    }
   );
 
   try {
     console.log('Testing resource cache...');
 
-    // Create a test tool in Hume
-    const evClient = await hume.connect('empathic-voice');
-    const tool = await evClient.tools.create({
-      type: 'function',
-      name: 'test_tool',
-      parameters: {
-        param1: 'string',
-        param2: 'number'
-      },
-      description: 'A test tool'
+    // Create tool with a unique name
+    const toolName = `test_tool_${Date.now()}`;
+    const tool = await hume.empathicVoice.tools.createTool({
+      name: toolName,
+      parameters: JSON.stringify({
+        type: "object",
+        properties: {
+          input: {
+            type: "string",
+            description: "Test input"
+          }
+        },
+        required: ["input"]
+      }),
+      description: "Test tool for integration testing",
+      fallbackContent: "Failed to execute test tool"
     });
-    console.log('Created tool in Hume:', tool);
+    console.log("Created tool:", tool);
+
+    // List tools
+    const tools = await hume.empathicVoice.tools.listTools({
+      pageNumber: 0,
+      pageSize: 10
+    });
+    console.log("Listed tools:", tools);
 
     // Cache the tool response
     const { data: cachedTool, error: cacheError } = await supabase
@@ -102,6 +120,8 @@ async function testToolsAndVoices() {
 
   } catch (error) {
     console.error('Test failed:', error);
+  } finally {
+    // No cleanup needed
   }
 }
 
