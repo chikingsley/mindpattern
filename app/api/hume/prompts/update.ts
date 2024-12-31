@@ -3,7 +3,7 @@ import { HumeClient } from 'hume';
 export interface UpdatePromptParams {
   promptId: string;
   text: string;
-  description?: string;
+  versionDescription?: string;
 }
 
 export async function updatePrompt(params: UpdatePromptParams) {
@@ -21,7 +21,7 @@ export async function updatePrompt(params: UpdatePromptParams) {
       params.promptId,
       {
         text: params.text,
-        version_description: params.description
+        versionDescription: params.versionDescription
       }
     );
 

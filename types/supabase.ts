@@ -6,6 +6,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+interface ResourceHistory {
+  id: string
+  version: number
+  timestamp: string
+}
+
 export type Database = {
   graphql_public: {
     Tables: {
@@ -34,113 +40,244 @@ export type Database = {
   }
   public: {
     Tables: {
-      embeddings: {
+      active_resources: {
         Row: {
-          embedding: string | null
-          embedding_type: string | null
           id: string
-          interaction_id: string
+          user_id: string
+          config_id: string
+          config_version: number
+          prompt_id: string
+          prompt_version: number
+          voice_id?: string
+          voice_version?: number
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          embedding?: string | null
-          embedding_type?: string | null
           id?: string
-          interaction_id: string
+          user_id: string
+          config_id: string
+          config_version: number
+          prompt_id: string
+          prompt_version: number
+          voice_id?: string
+          voice_version?: number
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          embedding?: string | null
-          embedding_type?: string | null
           id?: string
-          interaction_id?: string
+          user_id?: string
+          config_id?: string
+          config_version?: number
+          prompt_id?: string
+          prompt_version?: number
+          voice_id?: string
+          voice_version?: number
+          created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "embeddings_interaction_id_fkey"
-            columns: ["interaction_id"]
+            foreignKeyName: "active_resources_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "interactions"
+            referencedRelation: "users"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
-      interactions: {
-        Row: {
-          content: string
-          id: string
-          input_type: string
-          session_id: string | null
-          timestamp: string | null
-          user_id: string
-        }
-        Insert: {
-          content: string
-          id?: string
-          input_type: string
-          session_id?: string | null
-          timestamp?: string | null
-          user_id: string
-        }
-        Update: {
-          content?: string
-          id?: string
-          input_type?: string
-          session_id?: string | null
-          timestamp?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      long_term_memories: {
-        Row: {
-          category: string
-          content: string
-          id: string
-          metadata: Json | null
-          timestamp: string | null
-          user_id: string
-        }
-        Insert: {
-          category: string
-          content: string
-          id?: string
-          metadata?: Json | null
-          timestamp?: string | null
-          user_id: string
-        }
-        Update: {
-          category?: string
-          content?: string
-          id?: string
-          metadata?: Json | null
-          timestamp?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      metadata: {
+      active_tools: {
         Row: {
           id: string
-          interaction_id: string
-          metadata: Json
+          active_resource_id: string
+          tool_id: string
+          tool_version: number
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          interaction_id: string
-          metadata: Json
+          active_resource_id: string
+          tool_id: string
+          tool_version: number
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          interaction_id?: string
-          metadata?: Json
+          active_resource_id?: string
+          tool_id?: string
+          tool_version?: number
+          created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "metadata_interaction_id_fkey"
-            columns: ["interaction_id"]
+            foreignKeyName: "active_tools_active_resource_id_fkey"
+            columns: ["active_resource_id"]
             isOneToOne: false
-            referencedRelation: "interactions"
+            referencedRelation: "active_resources"
             referencedColumns: ["id"]
-          },
+          }
+        ]
+      }
+      resource_cache: {
+        Row: {
+          id: string
+          resource_type: 'config' | 'prompt' | 'tool' | 'voice'
+          resource_id: string
+          version: number
+          data: Json
+          expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          resource_type: 'config' | 'prompt' | 'tool' | 'voice'
+          resource_id: string
+          version: number
+          data: Json
+          expires_at: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          resource_type?: 'config' | 'prompt' | 'tool' | 'voice'
+          resource_id?: string
+          version?: number
+          data?: Json
+          expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+  storage: {
+    Tables: {
+      buckets: {
+        Row: {
+          allowed_mime_types: string[] | null
+          avif_autodetection: boolean | null
+          created_at: string | null
+          file_size_limit: number | null
+          id: string
+          name: string
+          owner: string | null
+          owner_id: string | null
+          public: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_mime_types?: string[] | null
+          avif_autodetection?: boolean | null
+          created_at?: string | null
+          file_size_limit?: number | null
+          id: string
+          name: string
+          owner?: string | null
+          owner_id?: string | null
+          public?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_mime_types?: string[] | null
+          avif_autodetection?: boolean | null
+          created_at?: string | null
+          file_size_limit?: number | null
+          id?: string
+          name?: string
+          owner?: string | null
+          owner_id?: string | null
+          public?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      migrations: {
+        Row: {
+          executed_at: string | null
+          hash: string
+          id: number
+          name: string
+        }
+        Insert: {
+          executed_at?: string | null
+          hash: string
+          id: number
+          name: string
+        }
+        Update: {
+          executed_at?: string | null
+          hash?: string
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      objects: {
+        Row: {
+          bucket_id: string | null
+          created_at: string | null
+          id: string
+          last_accessed_at: string | null
+          metadata: Json | null
+          name: string | null
+          owner: string | null
+          owner_id: string | null
+          path_tokens: string[] | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          bucket_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          metadata?: Json | null
+          name?: string | null
+          owner?: string | null
+          owner_id?: string | null
+          path_tokens?: string[] | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          bucket_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          metadata?: Json | null
+          name?: string | null
+          owner?: string | null
+          owner_id?: string | null
+          path_tokens?: string[] | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objects_bucketId_fkey"
+            columns: ["bucket_id"]
+            isOneToOne: false
+            referencedRelation: "buckets"
+            referencedColumns: ["id"]
+          }
         ]
       }
     }
@@ -148,177 +285,59 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      binary_quantize:
-        | {
-            Args: {
-              "": string
-            }
-            Returns: unknown
-          }
-        | {
-            Args: {
-              "": unknown
-            }
-            Returns: unknown
-          }
-      halfvec_avg: {
+      can_insert_object: {
         Args: {
-          "": number[]
+          bucketid: string
+          name: string
+          owner: string
+          metadata: Json
         }
-        Returns: unknown
+        Returns: undefined
       }
-      halfvec_out: {
+      extension: {
         Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: {
-          "": unknown
+          name: string
         }
         Returns: string
       }
-      halfvec_typmod_in: {
+      filename: {
         Args: {
-          "": unknown[]
-        }
-        Returns: number
-      }
-      hnsw_bit_support: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      ivfflat_bit_support: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      l2_norm:
-        | {
-            Args: {
-              "": unknown
-            }
-            Returns: number
-          }
-        | {
-            Args: {
-              "": unknown
-            }
-            Returns: number
-          }
-      l2_normalize:
-        | {
-            Args: {
-              "": string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              "": unknown
-            }
-            Returns: unknown
-          }
-        | {
-            Args: {
-              "": unknown
-            }
-            Returns: unknown
-          }
-      sparsevec_out: {
-        Args: {
-          "": unknown
-        }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: {
-          "": unknown
+          name: string
         }
         Returns: string
       }
-      sparsevec_typmod_in: {
+      foldername: {
         Args: {
-          "": unknown[]
+          name: string
         }
-        Returns: number
+        Returns: string[]
       }
-      vector_avg: {
-        Args: {
-          "": number[]
-        }
-        Returns: string
+      get_size_by_bucket: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          size: number
+          bucket_id: string
+        }[]
       }
-      vector_dims:
-        | {
-            Args: {
-              "": string
-            }
-            Returns: number
-          }
-        | {
-            Args: {
-              "": unknown
-            }
-            Returns: number
-          }
-      vector_norm: {
+      search: {
         Args: {
-          "": string
+          prefix: string
+          bucketname: string
+          limits?: number
+          levels?: number
+          offsets?: number
+          search?: string
+          sortcolumn?: string
+          sortorder?: string
         }
-        Returns: number
-      }
-      vector_out: {
-        Args: {
-          "": string
-        }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: {
-          "": string
-        }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: {
-          "": unknown[]
-        }
-        Returns: number
+        Returns: {
+          name: string
+          id: string
+          updated_at: string
+          created_at: string
+          last_accessed_at: string
+          metadata: Json
+        }[]
       }
     }
     Enums: {
@@ -330,99 +349,99 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type PublicSchema = Database['public']
 
 export type Tables<
   PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | keyof (Database['public']['Tables'] & Database['public']['Views'])
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    ? keyof (Database[PublicTableNameOrOptions['schema']]['Tables'] &
+        Database[PublicTableNameOrOptions['schema']]['Views'])
     : never = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (Database[PublicTableNameOrOptions['schema']]['Tables'] &
+      Database[PublicTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
+  : PublicTableNameOrOptions extends keyof (Database['public']['Tables'] &
+      Database['public']['Views'])
+  ? (Database['public']['Tables'] &
+      Database['public']['Views'])[PublicTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
     : never
+  : never
 
 export type TablesInsert<
   PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+    | keyof Database['public']['Tables']
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    ? keyof Database[PublicTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? Database[PublicTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
+  : PublicTableNameOrOptions extends keyof Database['public']['Tables']
+  ? Database['public']['Tables'][PublicTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
     : never
+  : never
 
 export type TablesUpdate<
   PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+    | keyof Database['public']['Tables']
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    ? keyof Database[PublicTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? Database[PublicTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
+  : PublicTableNameOrOptions extends keyof Database['public']['Tables']
+  ? Database['public']['Tables'][PublicTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
     : never
+  : never
 
 export type Enums<
   PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+    | keyof Database['public']['Enums']
     | { schema: keyof Database },
   EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof Database[PublicEnumNameOrOptions['schema']]['Enums']
     : never = never,
 > = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
-    : never
+  ? Database[PublicEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : PublicEnumNameOrOptions extends keyof Database['public']['Enums']
+  ? Database['public']['Enums'][PublicEnumNameOrOptions]
+  : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof Database['public']['CompositeTypes']
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof Database[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+  ? Database[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof Database['public']['CompositeTypes']
+  ? Database['public']['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+  : never

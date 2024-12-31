@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPrompt } from './new';
-import { updatePrompt } from './update';
-import { getActivePrompt, setActivePrompt } from './active';
-import { listPrompts, listPromptVersions } from './list';
 import { auth } from '@clerk/nextjs/server';
+import { createHumeVoice, HumeVoiceSettings } from './new';
+import { updateHumeVoice } from './update';
+import { listVoices, listVoiceVersions } from './list';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,32 +13,29 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get('action');
-    const projectId = searchParams.get('projectId') || 'default';
 
     switch (action) {
       case 'list':
         const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : undefined;
         const pageNumber = searchParams.get('pageNumber') ? parseInt(searchParams.get('pageNumber')!) : undefined;
         const name = searchParams.get('name') || undefined;
-        const prompts = await listPrompts({ pageSize, pageNumber, name });
-        return NextResponse.json(prompts);
+        const provider = (searchParams.get('provider') as "HUME_AI" | "CUSTOM_VOICE") || undefined;
+        const base_voice = (searchParams.get('base_voice') as "ITO" | "KORA" | "DACHER" | "AURA" | "FINN" | "WHIMSY" | "STELLA" | "SUNNY") || undefined;
+        const voices = await listVoices({ pageSize, pageNumber, name, provider, base_voice });
+        return NextResponse.json(voices);
 
       case 'listVersions':
-        const promptId = searchParams.get('promptId');
-        if (!promptId) {
-          return NextResponse.json({ error: 'promptId is required' }, { status: 400 });
+        const voiceId = searchParams.get('voiceId');
+        if (!voiceId) {
+          return NextResponse.json({ error: 'voiceId is required' }, { status: 400 });
         }
-        const versions = await listPromptVersions({
-          promptId,
+        const versions = await listVoiceVersions({
+          voiceId,
           pageSize: searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : undefined,
           pageNumber: searchParams.get('pageNumber') ? parseInt(searchParams.get('pageNumber')!) : undefined,
           restrictToMostRecent: searchParams.get('restrictToMostRecent') === 'true'
         });
         return NextResponse.json(versions);
-
-      case 'active':
-        const activePrompt = await getActivePrompt(userId, projectId);
-        return NextResponse.json(activePrompt);
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -59,37 +55,32 @@ export async function POST(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get('action');
-    const projectId = searchParams.get('projectId') || 'default';
     const body = await request.json();
 
     switch (action) {
-      case 'create':
-        const { name, text, versionDescription } = body;
-        if (!name || !text) {
-          return NextResponse.json({ error: 'name and text are required' }, { status: 400 });
+      case 'create': {
+        const { provider, name, base_voice, parameter_model, parameters } = body as HumeVoiceSettings;
+        if (!provider || !name) {
+          return NextResponse.json({ error: 'provider and name are required' }, { status: 400 });
         }
-        const prompt = await createPrompt({ name, text, versionDescription });
-        return NextResponse.json(prompt);
-
-      case 'update':
-        const { promptId, text: updateText, versionDescription: updateVersionDescription } = body;
-        if (!promptId || !updateText) {
-          return NextResponse.json({ error: 'promptId and text are required' }, { status: 400 });
-        }
-        const updatedPrompt = await updatePrompt({
-          promptId,
-          text: updateText,
-          versionDescription: updateVersionDescription
+        const voice = await createHumeVoice({ 
+          provider, 
+          name, 
+          base_voice,
+          parameter_model,
+          parameters
         });
-        return NextResponse.json(updatedPrompt);
+        return NextResponse.json(voice);
+      }
 
-      case 'setActive':
-        const { promptId: activePromptId, version } = body;
-        if (!activePromptId || version === undefined) {
-          return NextResponse.json({ error: 'promptId and version are required' }, { status: 400 });
+      case 'update': {
+        const { voiceId, ...settings } = body;
+        if (!voiceId) {
+          return NextResponse.json({ error: 'voiceId is required' }, { status: 400 });
         }
-        const activePrompt = await setActivePrompt(userId, activePromptId, version, projectId);
-        return NextResponse.json(activePrompt);
+        const updatedVoice = await updateHumeVoice(voiceId, settings);
+        return NextResponse.json(updatedVoice);
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

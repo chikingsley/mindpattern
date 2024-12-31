@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPrompt } from './new';
-import { updatePrompt } from './update';
-import { getActivePrompt, setActivePrompt } from './active';
-import { listPrompts, listPromptVersions } from './list';
 import { auth } from '@clerk/nextjs/server';
+import { createHumeConfig, HumeConfigSettings } from './new';
+import { updateHumeConfig } from './update';
+import { getActiveConfig, setActiveConfig } from './active';
+import { listConfigs, listConfigVersions } from './list';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,16 +21,16 @@ export async function GET(request: NextRequest) {
         const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : undefined;
         const pageNumber = searchParams.get('pageNumber') ? parseInt(searchParams.get('pageNumber')!) : undefined;
         const name = searchParams.get('name') || undefined;
-        const prompts = await listPrompts({ pageSize, pageNumber, name });
-        return NextResponse.json(prompts);
+        const configs = await listConfigs({ pageSize, pageNumber, name });
+        return NextResponse.json(configs);
 
       case 'listVersions':
-        const promptId = searchParams.get('promptId');
-        if (!promptId) {
-          return NextResponse.json({ error: 'promptId is required' }, { status: 400 });
+        const configId = searchParams.get('configId');
+        if (!configId) {
+          return NextResponse.json({ error: 'configId is required' }, { status: 400 });
         }
-        const versions = await listPromptVersions({
-          promptId,
+        const versions = await listConfigVersions({
+          configId,
           pageSize: searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : undefined,
           pageNumber: searchParams.get('pageNumber') ? parseInt(searchParams.get('pageNumber')!) : undefined,
           restrictToMostRecent: searchParams.get('restrictToMostRecent') === 'true'
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(versions);
 
       case 'active':
-        const activePrompt = await getActivePrompt(userId, projectId);
-        return NextResponse.json(activePrompt);
+        const activeConfig = await getActiveConfig(userId, projectId);
+        return NextResponse.json(activeConfig);
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -63,33 +63,38 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     switch (action) {
-      case 'create':
-        const { name, text, versionDescription } = body;
-        if (!name || !text) {
-          return NextResponse.json({ error: 'name and text are required' }, { status: 400 });
+      case 'create': {
+        const { name, prompt, language_model, voice, builtin_tools } = body as HumeConfigSettings;
+        if (!name || !prompt) {
+          return NextResponse.json({ error: 'name and prompt are required' }, { status: 400 });
         }
-        const prompt = await createPrompt({ name, text, versionDescription });
-        return NextResponse.json(prompt);
-
-      case 'update':
-        const { promptId, text: updateText, versionDescription: updateVersionDescription } = body;
-        if (!promptId || !updateText) {
-          return NextResponse.json({ error: 'promptId and text are required' }, { status: 400 });
-        }
-        const updatedPrompt = await updatePrompt({
-          promptId,
-          text: updateText,
-          versionDescription: updateVersionDescription
+        const config = await createHumeConfig({ 
+          name, 
+          prompt, 
+          language_model, 
+          voice, 
+          builtin_tools
         });
-        return NextResponse.json(updatedPrompt);
+        return NextResponse.json(config);
+      }
 
-      case 'setActive':
-        const { promptId: activePromptId, version } = body;
-        if (!activePromptId || version === undefined) {
-          return NextResponse.json({ error: 'promptId and version are required' }, { status: 400 });
+      case 'update': {
+        const { configId, ...settings } = body;
+        if (!configId) {
+          return NextResponse.json({ error: 'configId is required' }, { status: 400 });
         }
-        const activePrompt = await setActivePrompt(userId, activePromptId, version, projectId);
-        return NextResponse.json(activePrompt);
+        const updatedConfig = await updateHumeConfig(configId, settings);
+        return NextResponse.json(updatedConfig);
+      }
+
+      case 'setActive': {
+        const { configId: activeConfigId, version } = body;
+        if (!activeConfigId || version === undefined) {
+          return NextResponse.json({ error: 'configId and version are required' }, { status: 400 });
+        }
+        const activeConfig = await setActiveConfig(userId, activeConfigId, version, projectId);
+        return NextResponse.json(activeConfig);
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

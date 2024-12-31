@@ -3,7 +3,7 @@ import { HumeClient } from 'hume';
 export interface CreatePromptParams {
   name: string;
   text: string;
-  description?: string;
+  versionDescription?: string;
 }
 
 export async function createPrompt(params: CreatePromptParams) {
@@ -17,7 +17,7 @@ export async function createPrompt(params: CreatePromptParams) {
     const prompt = await client.empathicVoice.prompts.createPrompt({
       name: params.name,
       text: params.text,
-      versionDescription: params.description
+      versionDescription: params.versionDescription
     });
 
     return prompt;
