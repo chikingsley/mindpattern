@@ -1,6 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
-import { JINA_API_KEY, getEmbeddingConfig } from '@/config/api';
+import { generateEmbedding as generateSingleEmbedding, generateEmbeddings as generateMultipleEmbeddings } from './embeddings';
+
+// Required for tests
+const JINA_API_KEY = process.env.NEXT_PUBLIC_JINA_API_KEY;
 
 // Ensure user exists in the users table
 async function ensureUser(supabase: SupabaseClient<Database>, userId: string): Promise<void> {
@@ -35,8 +38,14 @@ interface TestResult {
   }[];
 }
 
+// Define the content interface
+interface TestDataItem {
+  content: string;
+  theme: string;
+}
+
 // Test data with clear themes and expected matches
-const testData = [
+const testData: TestDataItem[] = [
   // Relationship theme
   { content: "I'm feeling anxious about my relationship with Sarah", theme: "relationship" },
   { content: "My girlfriend Sarah and I had a big fight yesterday", theme: "relationship" },
@@ -91,7 +100,7 @@ async function runTestWithThreshold(
 
   for (const testQuery of testQueries) {
     const queryStart = performance.now();
-    const queryEmbedding = await generateEmbedding(testQuery.query, { task: 'retrieval.passage' });
+    const queryEmbedding = await generateSingleEmbedding(testQuery.query, { task: 'retrieval.passage' });
     
     if (!queryEmbedding) continue;
 
@@ -162,7 +171,7 @@ async function runTestWithThreshold(
 
 export async function testRAG(supabase: SupabaseClient<Database>, userId: string) {
   if (!JINA_API_KEY) {
-    throw new Error('JINA_API_KEY is not set in environment variables');
+    throw new Error('JINA_API_KEY is required for RAG testing');
   }
 
   await ensureUser(supabase, userId);
@@ -181,7 +190,7 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
   const sessionId = self.crypto.randomUUID();
   
   for (const item of testData) {
-    const embedding = await generateEmbedding(item.content, { task: 'retrieval.passage' });
+    const embedding = await generateSingleEmbedding(item.content, { task: 'retrieval.passage' });
     if (!embedding) continue;
 
     const { error } = await supabase
@@ -251,7 +260,15 @@ export async function testRAG(supabase: SupabaseClient<Database>, userId: string
   }
 }
 
-export async function insertDummyData(supabase: SupabaseClient<Database>, userId: string) {
+interface DummyDataItem {
+  content: string;
+  metadata: {
+    type: string;
+    sentiment: string;
+  };
+}
+
+export async function insertDummyData(supabase: SupabaseClient<Database>, userId: string): Promise<{ count: number; sessionId: string }> {
   // Ensure user exists before proceeding
   await ensureUser(supabase, userId);
 
@@ -261,38 +278,46 @@ export async function insertDummyData(supabase: SupabaseClient<Database>, userId
   console.log('User ID:', userId);
   console.log('Session ID:', sessionId);
   
-  const dummyData = [
+  const dummyData: DummyDataItem[] = [
     {
-      content: "Today I learned about mindfulness meditation and its benefits",
-      metadata: { category: 'meditation', mood: 'positive' }
+      content: "I've been feeling really down lately",
+      metadata: {
+        type: "mood",
+        sentiment: "negative"
+      }
     },
     {
-      content: "I'm feeling stressed about my upcoming presentation at work",
-      metadata: { category: 'work', mood: 'anxious' }
+      content: "Today was actually a good day",
+      metadata: {
+        type: "mood",
+        sentiment: "positive"
+      }
     },
     {
-      content: "My daily meditation practice is helping me stay focused",
-      metadata: { category: 'meditation', mood: 'positive' }
+      content: "I'm worried about my future",
+      metadata: {
+        type: "concern",
+        sentiment: "negative"
+      }
     },
     {
-      content: "Need advice on managing work-life balance",
-      metadata: { category: 'work', mood: 'neutral' }
-    },
-    {
-      content: "Feeling overwhelmed with all my responsibilities",
-      metadata: { category: 'general', mood: 'negative' }
+      content: "Made progress on my goals",
+      metadata: {
+        type: "achievement",
+        sentiment: "positive"
+      }
     }
   ];
 
   // Get all embeddings at once
-  const embeddings = await generateEmbeddings(dummyData.map(item => item.content));
+  const embeddings = await generateMultipleEmbeddings(dummyData.map((item: DummyDataItem) => item.content));
   
   // Insert all messages with their corresponding embeddings
-  const messages = dummyData.map((item, index) => ({
+  const messages = dummyData.map((item: DummyDataItem, index) => ({
     user_id: userId,
     session_id: sessionId,
     content: item.content,
-    role: 'user' as const,
+    role: 'user',
     metadata: item.metadata,
     embedding: embeddings[index]
   }));
@@ -311,98 +336,44 @@ export async function insertDummyData(supabase: SupabaseClient<Database>, userId
   return { count: messages.length, sessionId };
 }
 
+// Helper function to calculate mean of an array
+function calculateMean(arr: number[]): number {
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
 async function generateEmbeddings(inputs: string[]): Promise<number[][]> {
-  const config = getEmbeddingConfig();
-  
-  console.log('Generating embeddings for', inputs.length, 'inputs');
-  
-  const response = await fetch('https://api.jina.ai/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${JINA_API_KEY}`
-    },
-    body: JSON.stringify({
-      ...config,
-      input: inputs
-    })
-  });
-  
-  const responseText = await response.text();
-  
-  if (!response.ok) {
-    throw new Error(`Jina API error: ${responseText}`);
+  const result = await generateMultipleEmbeddings(inputs);
+  if (!result.every(embedding => embedding !== null)) {
+    throw new Error('Failed to generate some embeddings');
   }
-  
-  let result;
-  try {
-    result = JSON.parse(responseText);
-  } catch (e) {
-    throw new Error(`Failed to parse API response: ${responseText}`);
-  }
-  
-  if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
-    throw new Error(`Invalid API response format: ${JSON.stringify(result)}`);
-  }
-  
-  return result.data.map((item: any) => item.embedding);
+  return result.filter((embedding): embedding is number[] => embedding !== null);
 }
 
 async function generateEmbedding(input: string, options?: { task: 'text-matching' | 'retrieval.passage' | 'retrieval.query' }): Promise<number[]> {
-  const config = getEmbeddingConfig();
-  if (options) {
-    config.task = options.task;
+  const result = await generateSingleEmbedding(input, options);
+  if (!result) {
+    throw new Error(`Failed to generate embedding for input: ${input}`);
   }
-  
-  console.log('Generating embedding for:', input);
-  
-  const response = await fetch('https://api.jina.ai/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${JINA_API_KEY}`
-    },
-    body: JSON.stringify({
-      ...config,
-      input: [input]
-    })
-  });
-  
-  const responseText = await response.text();
-  
-  if (!response.ok) {
-    throw new Error(`Jina API error: ${responseText}`);
-  }
-  
-  let result;
-  try {
-    result = JSON.parse(responseText);
-  } catch (e) {
-    throw new Error(`Failed to parse API response: ${responseText}`);
-  }
-  
-  if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
-    throw new Error(`Invalid API response format: ${JSON.stringify(result)}`);
-  }
-  
-  return result.data[0].embedding;
+  return result;
 }
 
 async function testEmbeddingPerformance(inputs: string[], options: { embed_batch_size: number; task: 'text-matching' | 'retrieval.passage' | 'retrieval.query' }): Promise<{ improvement: number }> {
-  const startTime = performance.now();
-  const embeddings = await generateEmbeddings(inputs);
-  const sequentialTime = performance.now() - startTime;
+  // Start with single embeddings
+  const startSingle = performance.now();
+  const singleResults = await Promise.all(inputs.map(m => generateSingleEmbedding(m, { task: options.task })));
+  const singleTime = performance.now() - startSingle;
 
-  const parallelEmbeddings = await Promise.all(
-    Array(Math.ceil(inputs.length / options.embed_batch_size)).fill(0).map((_, i) => {
-      const batch = inputs.slice(i * options.embed_batch_size, (i + 1) * options.embed_batch_size);
-      return generateEmbeddings(batch);
-    })
-  );
+  // Then try with batching
+  const startBatch = performance.now();
+  const batchResults = await generateMultipleEmbeddings(inputs);
+  const batchTime = performance.now() - startBatch;
 
-  const parallelTime = performance.now() - startTime;
+  // Calculate improvement
+  const improvement = ((singleTime - batchTime) / singleTime) * 100;
 
-  const improvement = ((sequentialTime - parallelTime) / sequentialTime) * 100;
+  console.log(`Single processing time: ${singleTime}ms`);
+  console.log(`Batch processing time: ${batchTime}ms`);
+  console.log(`Improvement: ${improvement.toFixed(2)}%`);
 
   return { improvement };
 }
