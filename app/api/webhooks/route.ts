@@ -2,7 +2,7 @@ import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { PrismaClient } from '@prisma/client'
-import { createHumeConfig } from '@/utils/hume'
+import { createHumeConfig, deleteHumeConfig } from '@/utils/hume'
 import { supabase } from '@/lib/supabase'
 
 const prisma = new PrismaClient()
@@ -184,6 +184,18 @@ export async function POST(req: Request) {
       } catch (supabaseError) {
         console.error('Supabase deletion error:', supabaseError)
         // Continue with other deletions even if Supabase fails
+      }
+
+      // Delete Hume configs first
+      for (const config of user.configs) {
+        try {
+          if (config.humeConfigId) {
+            await deleteHumeConfig(config.humeConfigId)
+          }
+        } catch (error) {
+          console.error('Error deleting Hume config:', error)
+          // Continue with other deletions even if Hume deletion fails
+        }
       }
 
       // Delete from Prisma tables in correct order to handle foreign key constraints

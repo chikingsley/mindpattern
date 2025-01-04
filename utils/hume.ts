@@ -90,3 +90,13 @@ export async function createHumeConfig(
 
   return newConfig
 }
+
+export async function deleteHumeConfig(configId: string): Promise<void> {
+  console.log('Deleting Hume config:', configId)
+  
+  await fetchHume(`/configs/${configId}`, {
+    method: 'DELETE',
+  })
+
+  console.log('Successfully deleted Hume config:', configId)
+}
