@@ -142,7 +142,8 @@ export async function POST(req: Request) {
 
       return new Response('Success: User setup complete', { status: 200 })
     } catch (error) {
-      console.error('Error in user.created webhook:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      console.error('Error in user.created webhook:', errorMessage)
       return new Response('Error: Failed to setup user', { status: 500 })
     }
   }

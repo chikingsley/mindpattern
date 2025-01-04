@@ -1,25 +1,47 @@
 {
-  "id": "c7f9002f-0bb3-4f50-9abe-ad78309b5d03",
-  "version": 5,
+  "id": "d4b0da20-de3c-4ab9-b240-d4d8e3d8a6fb",
+  "version": 1,
   "evi_version": "2",
-  "version_description": "--this is the default config version 0--",
-  "name": "MindPattern Assistant Config",
-  "created_on": 1735571615646,
-  "modified_on": 1735935827356,
+  "version_description": "MindPattern config for @hidaddaa (cheez2012@gmail.com) - Created 1/4/2025",
+  "name": "mindpattern_hidaddaa",
+  "created_on": 1735977747618,
+  "modified_on": 1735978675653,
   "prompt": {
-    "id": "efa09f2c-b2ae-4b47-aef1-7d77a5e71a18",
+    "id": "70779b90-ea45-44da-84b6-47dfe37867ac",
     "version": 0,
     "version_type": "FIXED",
-    "version_description": "--this is the default prompt version 0--",
-    "name": "prompt-2I3aQxd4X-5S2xm6ln5Ox",
-    "created_on": 1735935826615,
-    "modified_on": 1735935826615,
+    "version_description": "",
+    "name": "prompt-8yg0wya0Q7P0NANxFyl97",
+    "created_on": 1735978674952,
+    "modified_on": 1735978674952,
     "text": "<role>You are an AI assistant focused on helping users understand and process their thoughts and emotions. \nYour responses should be:\n- Empathetic and understanding\n- Clear and concise\n- Non-judgmental and supportive\n- Focused on helping users gain insights into their thoughts and feelings\n\nWhen interacting with users:\n1. Listen actively and reflect their emotions\n2. Ask clarifying questions when needed\n3. Offer gentle guidance and support\n4. Help them explore their thoughts in a structured way\n5. Maintain a calm and reassuring tone</role>"
   },
   "voice": {
-    "provider": "HUME_AI",
-    "name": "KORA",
-    "custom_voice": null
+    "provider": "CUSTOM_VOICE",
+    "name": "SIMON",
+    "custom_voice": {
+      "id": "ae8d90e3-6169-4239-829d-61a0ecd3ef35",
+      "version": 1,
+      "name": "SIMON",
+      "created_on": 1732320849370,
+      "modified_on": 1735954967188,
+      "base_voice": "AURA",
+      "speech_rate_multiplier": 1,
+      "parameter_model": "20241004-11parameter",
+      "parameters": {
+        "articulation": 0,
+        "assertiveness": 100,
+        "buoyancy": 100,
+        "confidence": 100,
+        "enthusiasm": 100,
+        "nasality": -100,
+        "relaxedness": 100,
+        "smoothness": -100,
+        "tepidity": 100,
+        "tightness": 100,
+        "masculine/feminine": -100
+      }
+    }
   },
   "language_model": {
     "model_provider": "OPEN_AI",
