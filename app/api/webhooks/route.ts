@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { PrismaClient } from '@prisma/client'
 import { createHumeConfig } from '@/utils/hume'
+import { supabase } from '@/lib/supabase'
 
 const prisma = new PrismaClient()
 
@@ -145,6 +146,86 @@ export async function POST(req: Request) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       console.error('Error in user.created webhook:', errorMessage)
       return new Response('Error: Failed to setup user', { status: 500 })
+    }
+  }
+
+  if (evt.type === 'user.deleted') {
+    console.log('Processing user.deleted webhook:', evt.data.id)
+    
+    try {
+      const userId = evt.data.id
+
+      // Check if user exists in Prisma first
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          configs: true,
+          activeConfig: true
+        }
+      })
+
+      // If user doesn't exist in our database, just return success
+      if (!user) {
+        console.log('User not found in database, skipping deletion')
+        return new Response('Success: User not found', { status: 200 })
+      }
+
+      // Try to delete from Supabase first, but continue even if it fails
+      try {
+        const { error: supabaseError } = await supabase
+          .from('messages')
+          .delete()
+          .eq('user_id', userId)
+
+        if (supabaseError) {
+          console.error('Error deleting messages from Supabase:', supabaseError)
+          // Continue with other deletions even if Supabase fails
+        }
+      } catch (supabaseError) {
+        console.error('Supabase deletion error:', supabaseError)
+        // Continue with other deletions even if Supabase fails
+      }
+
+      // Delete from Prisma tables in correct order to handle foreign key constraints
+      await prisma.$transaction(async (tx) => {
+        // Delete active config first if it exists
+        if (user.activeConfig) {
+          await tx.activeConfig.delete({
+            where: { userId }
+          })
+        }
+
+        // Delete config voices and prompts if configs exist
+        if (user.configs.length > 0) {
+          const configIds = user.configs.map(c => c.id)
+          
+          await tx.configVoice.deleteMany({
+            where: { configId: { in: configIds } }
+          })
+          
+          await tx.configPrompt.deleteMany({
+            where: { configId: { in: configIds } }
+          })
+
+          // Delete configs
+          await tx.config.deleteMany({
+            where: { userId }
+          })
+        }
+
+        // Finally delete user
+        await tx.user.delete({
+          where: { id: userId }
+        })
+      })
+
+      console.log('Successfully deleted user and all associated data')
+      return new Response('Success: User deletion complete', { status: 200 })
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      console.error('Error in user.deleted webhook:', errorMessage)
+      return new Response('Error: Failed to delete user', { status: 500 })
     }
   }
 
