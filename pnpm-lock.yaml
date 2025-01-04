@@ -10,6 +10,7 @@ overrides:
   glob: ^9.0.0
   lru-cache: ^7.0.0
   rimraf: ^5.0.0
+  react-virtualized: npm:react-virtualized-fixed@9.22.3
 
 importers:
 
@@ -106,8 +107,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       react-virtualized:
-        specifier: ^9.22.5
-        version: 9.22.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: npm:react-virtualized-fixed@9.22.3
+        version: react-virtualized-fixed@9.22.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       remeda:
         specifier: ^2.19.0
         version: 2.19.0
@@ -2867,11 +2868,11 @@ packages:
       '@types/react':
         optional: true
 
-  react-virtualized@9.22.5:
-    resolution: {integrity: sha512-YqQMRzlVANBv1L/7r63OHa2b0ZsAaDp1UhVNEdUaXI8A5u6hTpA5NYtUueLH2rFuY/27mTGIBl7ZhqFKzw18YQ==}
+  react-virtualized-fixed@9.22.3:
+    resolution: {integrity: sha512-fPtPhktb4TyHURK6V8n3k/NNRVC1AUPBM15thYpM52pJj7jHXC+vUJllVX2s5UoowubOVtZrTwZ+h+44KiOcNA==}
     peerDependencies:
-      react: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0
-      react-dom: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0
+      react: ^15.3.0 || ^16.0.0-alpha
+      react-dom: ^15.3.0 || ^16.0.0-alpha
 
   react@18.3.1:
     resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
@@ -6144,7 +6145,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 18.3.18
 
-  react-virtualized@9.22.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-virtualized-fixed@9.22.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@babel/runtime': 7.26.0
       clsx: 1.2.1

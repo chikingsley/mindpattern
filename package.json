@@ -84,7 +84,8 @@
       "@humanwhocodes/object-schema": "2.0.3",
       "glob": "^9.0.0",
       "lru-cache": "^7.0.0",
-      "rimraf": "^5.0.0"
+      "rimraf": "^5.0.0",
+      "react-virtualized": "npm:react-virtualized-fixed@9.22.3"
     }
   }
 }
