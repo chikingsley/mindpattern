@@ -18,7 +18,6 @@
   },
   "voice": {
     "provider": "CUSTOM_VOICE",
-    "name": "SIMON",
     "custom_voice": {
       "id": "ae8d90e3-6169-4239-829d-61a0ecd3ef35",
       "version": 1,
