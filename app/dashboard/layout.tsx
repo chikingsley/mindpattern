@@ -26,7 +26,7 @@ export default async function RootLayout({
     throw new Error("No access token available");
   }
 
-  const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID;
+  const configId = process.env.HUME_CONFIG_ID;
 
   return (
     <ClerkProvider>

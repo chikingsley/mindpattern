@@ -1,0 +1,77 @@
+{
+  "id": "c7f9002f-0bb3-4f50-9abe-ad78309b5d03",
+  "version": 5,
+  "evi_version": "2",
+  "version_description": "--this is the default config version 0--",
+  "name": "MindPattern Assistant Config",
+  "created_on": 1735571615646,
+  "modified_on": 1735935827356,
+  "prompt": {
+    "id": "efa09f2c-b2ae-4b47-aef1-7d77a5e71a18",
+    "version": 0,
+    "version_type": "FIXED",
+    "version_description": "--this is the default prompt version 0--",
+    "name": "prompt-2I3aQxd4X-5S2xm6ln5Ox",
+    "created_on": 1735935826615,
+    "modified_on": 1735935826615,
+    "text": "<role>You are an AI assistant focused on helping users understand and process their thoughts and emotions. \nYour responses should be:\n- Empathetic and understanding\n- Clear and concise\n- Non-judgmental and supportive\n- Focused on helping users gain insights into their thoughts and feelings\n\nWhen interacting with users:\n1. Listen actively and reflect their emotions\n2. Ask clarifying questions when needed\n3. Offer gentle guidance and support\n4. Help them explore their thoughts in a structured way\n5. Maintain a calm and reassuring tone</role>"
+  },
+  "voice": {
+    "provider": "HUME_AI",
+    "name": "KORA",
+    "custom_voice": null
+  },
+  "language_model": {
+    "model_provider": "OPEN_AI",
+    "model_resource": "gpt-4o-mini",
+    "temperature": 0.7
+  },
+  "ellm_model": {
+    "allow_short_responses": false
+  },
+  "tools": [],
+  "builtin_tools": [
+    {
+      "tool_type": "BUILTIN",
+      "name": "web_search",
+      "fallback_content": null
+    },
+    {
+      "tool_type": "BUILTIN",
+      "name": "hang_up",
+      "fallback_content": null
+    }
+  ],
+  "event_messages": {
+    "on_new_chat": {
+      "enabled": false,
+      "text": null
+    },
+    "on_resume_chat": {
+      "enabled": false,
+      "text": null
+    },
+    "on_disconnect_resume_chat": {
+      "enabled": false,
+      "text": null
+    },
+    "on_inactivity_timeout": {
+      "enabled": false,
+      "text": null
+    },
+    "on_max_duration_timeout": {
+      "enabled": false,
+      "text": null
+    }
+  },
+  "timeouts": {
+    "inactivity": {
+      "enabled": true,
+      "duration_secs": 120
+    },
+    "max_duration": {
+      "enabled": true,
+      "duration_secs": 1800
+    }
+  }
+}

@@ -4,7 +4,8 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 const isPublicRoute = createRouteMatcher([
   '/',  // Landing page
   '/sign-in(.*)', 
-  '/sign-up(.*)'
+  '/sign-up(.*)',
+  '/api/webhooks(.*)'
 ])
 
 export default clerkMiddleware(async (auth, request) => {
@@ -23,5 +24,7 @@ export const config = {
     // Exclude SSE endpoints from Clerk middleware
     '/((?!_next|api/sse|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api(?!/sse)|trpc)(.*)',  // Match api routes except /api/sse
+    // Always run for API routes
+    '/(api|trpc)(.*)',
   ],
 }
