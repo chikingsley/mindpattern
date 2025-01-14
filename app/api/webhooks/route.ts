@@ -190,7 +190,19 @@ export async function POST(req: Request) {
       for (const config of user.configs) {
         try {
           if (config.humeConfigId) {
+            console.log('Attempting to delete Hume config:', {
+              configId: config.id,
+              humeConfigId: config.humeConfigId
+            })
+            
+            // Validate UUID format
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.humeConfigId)) {
+              console.error('Invalid Hume config ID format:', config.humeConfigId)
+              continue
+            }
+
             await deleteHumeConfig(config.humeConfigId)
+            console.log('Successfully deleted Hume config:', config.humeConfigId)
           }
         } catch (error) {
           console.error('Error deleting Hume config:', error)
