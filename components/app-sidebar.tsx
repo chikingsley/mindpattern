@@ -6,7 +6,7 @@ import { useVoice } from "@humeai/voice-react"
 import { useChatContext } from "@/app/context/ChatContext"
 import { Button } from "@/components/ui/button"
 import { NavConversations } from "@/components/nav-conversations"
-import { NavUser } from "@/components/nav-user"
+// import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
 import {
   Sidebar,
@@ -18,10 +18,11 @@ import {
 
 // This is sample data.
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "https://github.com/shadcn.png",},
+  // user: {
+  //   name: "shadcn",
+  //   email: "m@example.com",
+  //   avatar: "https://github.com/shadcn.png",
+  // },
   teams: [
     {
       name: "Personal",
@@ -74,7 +75,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavConversations />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        {/* <NavUser user={data.user} /> */}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
