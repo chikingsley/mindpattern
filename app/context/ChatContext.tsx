@@ -13,18 +13,25 @@ interface ChatSession {
 interface ChatContextType {
   sessions: ChatSession[]
   selectedSession: string | null
+  activeSessionId: string | null
+  lastMessageTime: number | null
   addSession: (session: ChatSession) => void
   selectSession: (id: string | null) => void
   addMessageToSession: (sessionId: string, message: ChatMessage) => void
+  isActiveSession: (sessionId: string) => boolean
   error: Error | null
   isLoading: boolean
 }
+
+const ACTIVE_SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [lastMessageTime, setLastMessageTime] = useState<number | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const { session, isLoaded } = useSession()
@@ -76,9 +83,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const addSession = async (newSession: ChatSession) => {
     console.debug('Adding new session:', newSession.id)
-    // Update local state immediately
     setSessions(prev => [newSession, ...prev])
     setSelectedSession(newSession.id)
+    setActiveSessionId(newSession.id)
+    setLastMessageTime(Date.now())
+  }
+
+  const selectSession = (id: string | null) => {
+    setSelectedSession(id)
+    // Clear active session when switching
+    if (id !== activeSessionId) {
+      setActiveSessionId(null)
+      setLastMessageTime(null)
+    }
   }
 
   const addMessageToSession = async (sessionId: string, message: ChatMessage) => {
@@ -91,6 +108,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     })
 
+    // Update active session tracking
+    setActiveSessionId(sessionId)
+    setLastMessageTime(Date.now())
+
     // Update local state immediately
     setSessions(prev => {
       const updatedSessions = prev.map(session => {
@@ -101,26 +122,27 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 m.content === message.content &&
                 m.timestamp === message.timestamp
           )
-
+          
           if (!messageExists) {
-            console.debug('Adding new message to session:', sessionId)
             return {
               ...session,
-              messages: [...session.messages, message],
-              timestamp: message.timestamp // Update session timestamp
+              messages: [...session.messages, message]
             }
           }
-          console.debug('Message already exists in session:', sessionId)
         }
         return session
       })
-
+      
       return updatedSessions
     })
   }
 
-  const selectSession = (id: string | null) => {
-    setSelectedSession(id)
+  const isActiveSession = (sessionId: string) => {
+    return (
+      sessionId === activeSessionId &&
+      lastMessageTime !== null &&
+      Date.now() - lastMessageTime < ACTIVE_SESSION_TIMEOUT
+    )
   }
 
   return (
@@ -128,11 +150,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       value={{
         sessions,
         selectedSession,
+        activeSessionId,
+        lastMessageTime,
         addSession,
         selectSession,
         addMessageToSession,
+        isActiveSession,
         error,
-        isLoading
+        isLoading,
       }}
     >
       {children}
