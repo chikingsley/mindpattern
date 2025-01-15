@@ -38,17 +38,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Log voice hook state changes
   React.useEffect(() => {
-    console.log('Voice hook status changed:', {
+    console.log('Voice hook status:', {
       value: status.value,
-      ...(status.reason && { reason: status.reason }),
+      reason: status.reason,
+      timestamp: new Date().toISOString(),
+      state: {
+        isConnecting: status.value === 'connecting',
+        isConnected: status.value === 'connected',
+        isDisconnected: status.value === 'disconnected',
+        hasError: status.value === 'error',
+      }
     });
   }, [status]);
 
   const handleStartCall = async () => {
     try {
-      console.log('Starting call...');
+      console.log('Starting voice call...');
       await connect();
-      console.log('Call connected');
+      console.log('Voice call connected successfully');
       
       // Create new session via API
       const response = await fetch('/api/sessions', {
