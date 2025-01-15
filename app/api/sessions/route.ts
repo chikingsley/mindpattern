@@ -24,7 +24,7 @@ export async function GET() {
       include: {
         messages: {
           orderBy: { timestamp: 'asc' },
-          take: -1 // Get most recent message
+          take: -2 // Get most recent message
         }
       }
     })

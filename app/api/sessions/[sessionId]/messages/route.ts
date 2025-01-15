@@ -6,11 +6,15 @@ const prisma = new PrismaClient()
 
 export async function POST(
   request: Request,
-  { params }: { params: { sessionId: string } }
+  context: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    // Get authenticated user
-    const { userId } = await auth()
+    // Get authenticated user and params in parallel
+    const [{ userId }, params] = await Promise.all([
+      auth(),
+      context.params
+    ])
+
     if (!userId) {
       console.error('No user ID found in auth session')
       return NextResponse.json(
