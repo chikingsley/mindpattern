@@ -42,6 +42,11 @@ export default async function RootLayout({
 
   const configId = process.env.HUME_CONFIG_ID;
 
+  console.log('Initializing Hume Voice Provider:', {
+    accessToken: accessToken ? 'present' : 'missing',
+    configId: configId ? 'present (optional)' : 'not provided (optional)',
+  });
+
   return (
     <ClerkProvider>
       <body

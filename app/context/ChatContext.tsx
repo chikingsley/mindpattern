@@ -72,7 +72,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (!session?.user?.id) return;
 
     try {
-      await fetch('/api/sessions', {
+      const response = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -81,9 +81,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           userId: session.user.id
         })
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to sync session to backend');
+      }
+
+      // Clear localStorage when we successfully sync to backend
+      localStorage.removeItem('chatSessions');
+      console.debug('Session synced successfully:', newSession.id);
     } catch (error) {
       console.error('Background session sync failed:', error);
-      // Don't set error state here as this is a background operation
+      // Store in localStorage as fallback
+      localStorage.setItem('chatSessions', JSON.stringify([newSession]));
     }
   };
 
@@ -91,7 +100,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (!session?.user?.id) return;
 
     try {
-      await fetch(`/api/sessions/${sessionId}/messages`, {
+      const response = await fetch(`/api/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,9 +110,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           metadata: message.metadata
         })
       });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Session doesn't exist in backend, try to recreate it
+          const sessionToSync = sessions.find(s => s.id === sessionId);
+          if (sessionToSync) {
+            console.debug('Recreating missing session:', sessionId);
+            await syncSessionToBackend(sessionToSync);
+            // Retry message sync
+            return syncMessageToBackend(sessionId, message);
+          } else {
+            throw new Error('Session not found locally');
+          }
+        }
+        throw new Error('Failed to sync message to backend');
+      }
+
+      console.debug('Message synced successfully:', sessionId);
     } catch (error) {
       console.error('Background message sync failed:', error);
-      // Don't set error state here as this is a background operation
+      // Update localStorage with latest state
+      localStorage.setItem('chatSessions', JSON.stringify(sessions));
     }
   };
 
@@ -163,14 +191,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const addSession = async (newSession: ChatSession) => {
     console.debug('Adding new session:', newSession.id);
     
-    // Optimistic UI update
+    // Update local state
     setSessions(prev => [newSession, ...prev]);
     setSelectedSession(newSession.id);
     setActiveSessionId(newSession.id);
     setLastMessageTime(Date.now());
-
-    // Background sync
-    syncSessionToBackend(newSession);
   };
 
   const selectSession = (id: string | null) => {

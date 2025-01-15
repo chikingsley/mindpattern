@@ -36,15 +36,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { status, connect } = useVoice();
   const { addSession } = useChatContext();
 
+  // Log voice hook state changes
+  React.useEffect(() => {
+    console.log('Voice hook status changed:', {
+      value: status.value,
+      ...(status.reason && { reason: status.reason }),
+    });
+  }, [status]);
+
   const handleStartCall = async () => {
     try {
+      console.log('Starting call...');
       await connect();
-      // Create new session
-      const newSession = {
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        messages: []
-      };
+      console.log('Call connected');
+      
+      // Create new session via API
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create session');
+      }
+      
+      const newSession = await response.json();
+      console.log('Session created:', newSession.id);
       addSession(newSession);
     } catch (error) {
       console.error('Failed to start call:', error);
@@ -69,7 +85,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             onClick={handleStartCall}
             disabled={status.value === "connected"}
           >
-            Start New Chat
+            Start New Chat {status.value !== "connected" ? "" : "(Connected)"}
           </Button>
         </div>
         <NavConversations />
