@@ -8,8 +8,10 @@ const ChatComponent = dynamic(() => import("@/components/Chat"), {
 
 export default function Page() {
   return (
-    <div className="grow flex flex-col">
-      <ChatComponent />
+    <div className="flex flex-1 flex-col">
+      <div className="flex-1 min-h-0">
+        <ChatComponent />
+      </div>
     </div>
   );
 }

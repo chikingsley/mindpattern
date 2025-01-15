@@ -5,10 +5,24 @@ import "../globals.css";
 import { Nav } from "@/components/Nav";
 import { cn } from "@/lib/utils";
 import { ChatProvider } from "@/app/context/ChatContext";
-import Sidebar from "@/components/Sidebar";
 import { VoiceProvider } from "@humeai/voice-react";
 import { getHumeAccessToken } from "@/utils/getHumeAccessToken";
-import { ClerkProvider, SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import { ClerkProvider } from '@clerk/nextjs';
+import { AppSidebar } from "@/components/app-sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
 
 export const metadata: Metadata = {
   title: "MindPattern Dashboard",
@@ -38,17 +52,37 @@ export default async function RootLayout({
         )}
       >
         <ChatProvider>
-          <VoiceProvider
-            auth={{ type: "accessToken", value: accessToken }}
-            configId={configId}
-          >
+          <VoiceProvider auth={{ type: "accessToken", value: accessToken }} configId={configId}>
             <div className="flex h-screen flex-col">
               <Nav />
               <div className="flex flex-1 overflow-hidden">
-                <Sidebar />
-                <main className="flex-1 relative">
-                  {children}
-                </main>
+                <SidebarProvider>
+                  <AppSidebar />
+                  <SidebarInset>
+                    <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear">
+                      <div className="flex items-center gap-1 px-2">
+                        <SidebarTrigger className="-ml-0.5" />
+                        <Separator orientation="vertical" className="h-4" />
+                        <Breadcrumb>
+                          <BreadcrumbList>
+                            <BreadcrumbItem className="hidden md:block">
+                              <BreadcrumbLink href="#">
+                                Building Your Application
+                              </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="hidden md:block" />
+                            <BreadcrumbItem>
+                              <BreadcrumbPage>Data Fetching</BreadcrumbPage>
+                            </BreadcrumbItem>
+                          </BreadcrumbList>
+                        </Breadcrumb>
+                      </div>
+                    </header>
+                    <main className="flex-1 relative overflow-auto">
+                      {children}
+                    </main>
+                  </SidebarInset>
+                </SidebarProvider>
               </div>
             </div>
           </VoiceProvider>
