@@ -1,14 +1,13 @@
-import { HumeConfig, HumeError } from '@/types/hume'
-import { BASE_PROMPT } from '@/utils/prompts/base-prompt'
+import { HumeConfig, HumeError } from '../types/hume'
+import { BASE_PROMPT } from './prompts/base-prompt'
 
-// Ensure environment variables exist at startup
-const _HUME_API_KEY = process.env.HUME_API_KEY 
-
-if (!_HUME_API_KEY) {
-  throw new Error('HUME_API_KEY is not defined in environment variables')
+function getHumeApiKey() {
+  const apiKey = process.env.HUME_API_KEY
+  if (!apiKey) {
+    throw new Error('HUME_API_KEY is not defined in environment variables')
+  }
+  return apiKey
 }
-
-const HUME_API_KEY = _HUME_API_KEY
 
 class HumeApiError extends Error implements HumeError {
   status?: number
@@ -26,13 +25,12 @@ async function fetchHume<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  // Use the validated API key from above
   const url = `https://api.hume.ai/v0/evi${endpoint}`
   const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'X-Hume-Api-Key': HUME_API_KEY,  
+      'X-Hume-Api-Key': getHumeApiKey(),  
       ...options.headers,
     },
   })
@@ -44,10 +42,14 @@ async function fetchHume<T>(
 
   try {
     const data = await response.json()
+    console.log('Hume API response:', {
+      status: response.status,
+      data
+    })
 
     if (!response.ok) {
       throw new HumeApiError(
-        data.message || 'Hume API request failed',
+        data.message || `Hume API request failed: ${data.error || JSON.stringify(data)}`,
         response.status,
         data.code
       )
@@ -55,9 +57,13 @@ async function fetchHume<T>(
 
     return data as T
   } catch (error) {
+    console.error('Hume API error:', {
+      status: response.status,
+      error: error instanceof Error ? error.message : error
+    })
     if (!response.ok) {
       throw new HumeApiError(
-        'Hume API request failed',
+        error instanceof Error ? error.message : `Hume API request failed (${response.status})`,
         response.status
       )
     }
@@ -65,55 +71,16 @@ async function fetchHume<T>(
   }
 }
 
-function createConfigPayload(username: string, email: string) {
+export function createConfigPayload(username: string, email: string) {
   return {
     evi_version: "2",
     name: `mindpattern_${username.toLowerCase()}`,
     version_description: `MindPattern config for @${username} (${email}) - Created ${new Date().toLocaleDateString()}`,
-    prompt: {
-      text: BASE_PROMPT
-    },
-    voice: {
-      provider: "CUSTOM_VOICE",
-      custom_voice: {
-        name: "SIMON",
-        base_voice: "WHIMSY",
-        parameter_model: "20241004-11parameter",
-        parameters: {
-          gender: -100,
-          assertiveness: 100,
-          buoyancy: 100,
-          confidence: 100,
-          enthusiasm: 100,
-          nasality: -100,
-          relaxedness: -100,
-          smoothness: -100,
-          tepidity: 100,
-          tightness: 100
-        }   
-      }
-    },
+    voice: { provider: "HUME_AI", name: "KORA" },
     language_model: {
-      model_provider: "OPEN_AI",
+      model_provider: "CUSTOM_LANGUAGE_MODEL",
       model_resource: "https://tolerant-bengal-hideously.ngrok-free.app/api/chat/completions",
-      temperature: 0.7
     },
-    ellm_model: {
-      allow_short_responses: false
-    },
-    tools: [],
-    builtin_tools: [
-      {
-        tool_type: "BUILTIN" as const,
-        name: "web_search",
-        fallback_content: null
-      },
-      {
-        tool_type: "BUILTIN" as const,
-        name: "hang_up",
-        fallback_content: null
-      }
-    ],
     event_messages: {
       on_new_chat: { enabled: false, text: null },
       on_resume_chat: { enabled: false, text: null },
@@ -122,22 +89,14 @@ function createConfigPayload(username: string, email: string) {
       on_max_duration_timeout: { enabled: false, text: null }
     },
     timeouts: {
-      inactivity: {
-        enabled: true,
-        duration_secs: 120
-      },
-      max_duration: {
-        enabled: true,
-        duration_secs: 1800
-      }
+      inactivity: { enabled: false, duration_secs: 60 },
+      max_duration: { enabled: true, duration_secs: 1800 }
     }
   }
 }
 
-export async function createHumeConfig(
-  username: string,
-  email: string
-): Promise<HumeConfig> {
+export async function createHumeConfig(username: string, email: string):
+  Promise<HumeConfig> {
   console.log('Creating new Hume config for:', { username, email })
   
   const payload = createConfigPayload(username, email)
@@ -186,6 +145,6 @@ export async function deleteHumeConfig(configId: string): Promise<void> {
 }
 
 // UUID validation helper
-function isValidUUID(id: string): boolean {
+export function isValidUUID(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 }

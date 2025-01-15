@@ -7,6 +7,13 @@ import { supabase } from '@/lib/supabase'
 
 const prisma = new PrismaClient()
 
+async function checkUserExists(userId: string) {
+  const count = await prisma.user.count({
+    where: { id: userId }
+  });
+  return count > 0;
+}
+
 export async function POST(req: Request) {
   const SIGNING_SECRET = process.env.SIGNING_SECRET
 
@@ -50,102 +57,45 @@ export async function POST(req: Request) {
     })
   }
 
-  // Do something with payload
-  // For this guide, log payload to console
+  // Handle webhook events
   const { id } = evt.data
   const eventType = evt.type
   console.log(`Received webhook with ID ${id} and event type of ${eventType}`)
-  console.log('Webhook payload:', body)
-
 
   if (evt.type === 'user.created') {
     console.log('Processing user.created webhook:', evt.data.id)
     
     try {
-      // Create user in Supabase
-      const user = await prisma.user.create({
-        data: {
-          id: evt.data.id,
-        }
-      })
-      console.log('Created user:', user.id)
-
-      // Get user details
+      // Get user details from Clerk
       const email = evt.data.email_addresses[0]?.email_address
       if (!email) {
         throw new Error('User has no email address')
       }
 
-      // Generate username from email or first name
-      const username = evt.data.username || 
-        evt.data.first_name?.toLowerCase() || 
-        email.split('@')[0]
-
-      // Create new Hume config
-      const humeConfig = await createHumeConfig(username, email)
-      
-      // Create config record
-      const config = await prisma.config.create({
-        data: {
-          userId: user.id,
-          name: `mindpattern_${username.toLowerCase()}`,
-          humeConfigId: humeConfig.id,
-        }
-      })
-      console.log('Created config:', config.id)
-
-      // Set as active config
-      const activeConfig = await prisma.activeConfig.create({
-        data: {
-          userId: user.id,
-          configId: config.id,
-        }
-      })
-      console.log('Set active config:', activeConfig.id)
-
-      // Get active feature rollouts
-      const activeRollouts = await prisma.featureRollout.findMany({
-        where: {
-          strategy: 'ALL_USERS',
-          startAt: { lte: new Date() },
-          OR: [
-            { endAt: null },
-            { endAt: { gt: new Date() } }
-          ]
-        }
-      })
-      console.log('Found active rollouts:', activeRollouts.length)
-
-      // Link components based on rollouts
-      for (const rollout of activeRollouts) {
-        if (rollout.type === 'VOICE') {
-          await prisma.configVoice.create({
-            data: {
-              configId: config.id,
-              voiceId: rollout.targetId,
-              isDefault: true,
-              settings: {}
-            }
-          })
-          console.log('Linked voice:', rollout.targetId)
-        }
-        if (rollout.type === 'PROMPT') {
-          await prisma.configPrompt.create({
-            data: {
-              configId: config.id,
-              promptId: rollout.targetId,
-              customization: {}
-            }
-          })
-          console.log('Linked prompt:', rollout.targetId)
-        }
+      // Get username from Clerk
+      const username = evt.data.username
+      if (!username) {
+        throw new Error('User has no username')
       }
 
-      return new Response('Success: User setup complete', { status: 200 })
+      // Create Hume config
+      const humeConfig = await createHumeConfig(username, email)
+      console.log('Created Hume config:', humeConfig.id)
+
+      // Create user in Prisma with Hume config ID
+      const user = await prisma.user.create({
+        data: {
+          id: evt.data.id,
+          configId: humeConfig.id
+        }
+      })
+      console.log('Created user:', user.id)
+
+      return new Response('Success: User created', { status: 200 })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       console.error('Error in user.created webhook:', errorMessage)
-      return new Response('Error: Failed to setup user', { status: 500 })
+      return new Response('Error: Failed to create user', { status: 500 })
     }
   }
 
@@ -154,98 +104,54 @@ export async function POST(req: Request) {
     
     try {
       const userId = evt.data.id
+      if (!userId) {
+        throw new Error('No user ID provided in webhook data')
+      }
 
-      // Check if user exists in Prisma first
+      // Check if user exists before deletion
+      const existsBefore = await checkUserExists(userId);
+      console.log('User exists before deletion:', existsBefore);
+
+      // Get user with config ID
       const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          configs: true,
-          activeConfig: true
-        }
+        where: { id: userId }
       })
 
-      // If user doesn't exist in our database, just return success
       if (!user) {
         console.log('User not found in database, skipping deletion')
         return new Response('Success: User not found', { status: 200 })
       }
 
-      // Try to delete from Supabase first, but continue even if it fails
-      try {
-        const { error: supabaseError } = await supabase
-          .from('messages')
-          .delete()
-          .eq('user_id', userId)
-
-        if (supabaseError) {
-          console.error('Error deleting messages from Supabase:', supabaseError)
-          // Continue with other deletions even if Supabase fails
-        }
-      } catch (supabaseError) {
-        console.error('Supabase deletion error:', supabaseError)
-        // Continue with other deletions even if Supabase fails
-      }
-
-      // Delete Hume configs first
-      for (const config of user.configs) {
+      // Delete Hume config if it exists
+      if (user.configId) {
         try {
-          if (config.humeConfigId) {
-            console.log('Attempting to delete Hume config:', {
-              configId: config.id,
-              humeConfigId: config.humeConfigId
-            })
-            
-            // Validate UUID format
-            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.humeConfigId)) {
-              console.error('Invalid Hume config ID format:', config.humeConfigId)
-              continue
-            }
-
-            await deleteHumeConfig(config.humeConfigId)
-            console.log('Successfully deleted Hume config:', config.humeConfigId)
-          }
+          await deleteHumeConfig(user.configId)
+          console.log('Deleted Hume config:', user.configId)
         } catch (error) {
           console.error('Error deleting Hume config:', error)
-          // Continue with other deletions even if Hume deletion fails
+          // Continue with deletion even if Hume fails
         }
       }
 
-      // Delete from Prisma tables in correct order to handle foreign key constraints
-      await prisma.$transaction(async (tx) => {
-        // Delete active config first if it exists
-        if (user.activeConfig) {
-          await tx.activeConfig.delete({
-            where: { userId }
-          })
-        }
+      // Delete user and all related data through cascading
+      try {
+        console.log('Attempting to delete user:', userId);
+        const deletedUser = await prisma.user.delete({
+          where: { id: userId },
+          include: { sessions: true } // Include sessions to see what's being deleted
+        });
+        console.log('Successfully deleted user:', deletedUser);
+      } catch (error) {
+        console.error('Failed to delete user from Prisma:', error);
+        throw error; // Re-throw to be caught by outer try-catch
+      }
 
-        // Delete config voices and prompts if configs exist
-        if (user.configs.length > 0) {
-          const configIds = user.configs.map(c => c.id)
-          
-          await tx.configVoice.deleteMany({
-            where: { configId: { in: configIds } }
-          })
-          
-          await tx.configPrompt.deleteMany({
-            where: { configId: { in: configIds } }
-          })
-
-          // Delete configs
-          await tx.config.deleteMany({
-            where: { userId }
-          })
-        }
-
-        // Finally delete user
-        await tx.user.delete({
-          where: { id: userId }
-        })
-      })
+      // Check if user still exists after deletion
+      const existsAfter = await checkUserExists(userId);
+      console.log('User exists after deletion:', existsAfter);
 
       console.log('Successfully deleted user and all associated data')
       return new Response('Success: User deletion complete', { status: 200 })
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       console.error('Error in user.deleted webhook:', errorMessage)

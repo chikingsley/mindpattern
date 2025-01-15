@@ -1,157 +1,43 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  directUrl  = env("DIRECT_URL")
-  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions"), vector]
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id           String        @id
-  createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
-  activeConfig ActiveConfig?
-  configs      Config[]
-  messages     Message[]
+  id        String    @id
+  email     String?   @unique
+  configId  String?   @map("config_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  sessions  Session[]
 
   @@map("users")
 }
 
+model Session {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id")
+  timestamp DateTime  @default(now()) @db.Timestamptz(6)
+  messages  Message[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
 model Message {
-  id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String                 @map("user_id")
-  sessionId String                 @map("session_id") @db.Uuid
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  role      String    @db.VarChar(10)
   content   String
-  role      String
-  timestamp DateTime?              @default(now()) @db.Timestamptz(6)
-  metadata  Json?                  @default("{}")
-  embedding Unsupported("vector")?
-  user      User                   @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  timestamp DateTime  @default(now()) @db.Timestamptz(6)
+  metadata  Json?    @default("{}")
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([sessionId])
   @@map("messages")
-}
-
-model Config {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String         @map("user_id")
-  name         String
-  humeConfigId String         @map("hume_config_id") @db.Uuid
-  createdAt    DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
-  activeConfig ActiveConfig[]
-  user         User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  configTools  ConfigTool[]
-  configVoices ConfigVoice[]
-  configPrompts ConfigPrompt[]
-
-  @@index([userId])
-  @@map("configs")
-}
-
-model ActiveConfig {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @unique @map("user_id")
-  configId  String    @map("config_id") @db.Uuid
-  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  config    Config    @relation(fields: [configId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user      User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([userId])
-  @@map("active_configs")
-}
-
-// Component Models
-model Tool {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  humeToolId  String       @map("hume_tool_id") @db.Uuid
-  creator     String       // SYSTEM | USER | AI
-  visibility  String       // PUBLIC | PRIVATE | BETA
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  configTools ConfigTool[]
-
-  @@map("tools")
-}
-
-model Voice {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name         String
-  humeVoiceId  String        @map("hume_voice_id") @db.Uuid
-  type         String        // SYSTEM | PERSONAL
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  configVoices ConfigVoice[]
-
-  @@map("voices")
-}
-
-model Prompt {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name         String
-  humePromptId String         @map("hume_prompt_id") @db.Uuid
-  type         String         // SYSTEM | USER | AI_ENHANCED
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  configPrompts ConfigPrompt[]
-
-  @@map("prompts")
-}
-
-// Junction Models
-model ConfigTool {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  configId  String    @map("config_id") @db.Uuid
-  toolId    String    @map("tool_id") @db.Uuid
-  enabled   Boolean   @default(true)
-  settings  Json?     @default("{}")
-  addedAt   DateTime  @default(now()) @map("added_at") @db.Timestamptz(6)
-  
-  config    Config    @relation(fields: [configId], references: [id])
-  tool      Tool      @relation(fields: [toolId], references: [id])
-
-  @@unique([configId, toolId])
-  @@map("config_tools")
-}
-
-model ConfigVoice {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  configId  String    @map("config_id") @db.Uuid
-  voiceId   String    @map("voice_id") @db.Uuid
-  isDefault Boolean   @default(false) @map("is_default")
-  settings  Json?     @default("{}")
-  addedAt   DateTime  @default(now()) @map("added_at") @db.Timestamptz(6)
-  
-  config    Config    @relation(fields: [configId], references: [id])
-  voice     Voice     @relation(fields: [voiceId], references: [id])
-
-  @@unique([configId, voiceId])
-  @@map("config_voices")
-}
-
-model ConfigPrompt {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  configId     String    @map("config_id") @db.Uuid
-  promptId     String    @map("prompt_id") @db.Uuid
-  customization Json?    @default("{}")
-  addedAt      DateTime  @default(now()) @map("added_at") @db.Timestamptz(6)
-  
-  config       Config    @relation(fields: [configId], references: [id])
-  prompt       Prompt    @relation(fields: [promptId], references: [id])
-
-  @@unique([configId, promptId])
-  @@map("config_prompts")
-}
-
-// Feature Rollout
-model FeatureRollout {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  type      String    // TOOL | VOICE | PROMPT
-  targetId  String    @map("target_id") @db.Uuid
-  strategy  String    // ALL_USERS | NEW_USERS | BETA_USERS
-  startAt   DateTime  @map("start_at") @db.Timestamptz(6)
-  endAt     DateTime? @map("end_at") @db.Timestamptz(6)
-  metadata  Json?     @default("{}")
-
-  @@map("feature_rollouts")
 }

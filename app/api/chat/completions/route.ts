@@ -47,18 +47,19 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function GET() {
-  console.log('SSE Connection established');
+  console.log('🎯 SSE Connection established to /api/chat/completions');
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
   
   try {
     const encoder = new TextEncoder();
+    console.log('📡 Sending connected message');
     await writer.write(encoder.encode('data: {"type":"connected"}\n\n'));
     console.log('Sent connected message');
     
     return setupSSEResponse(stream);
   } catch (error) {
-    console.error('GET Error:', error);
+    console.error('❌ GET Error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Connection failed' }), 
       { 
@@ -73,6 +74,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  console.log('🚀 POST request received at /api/chat/completions');
+  console.log('📨 Headers:', Object.fromEntries(req.headers.entries()));
+  
   const encoder = new TextEncoder();
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -81,7 +85,9 @@ export async function POST(req: NextRequest) {
     // Only check authentication if API_KEY is set
     const authHeader = req.headers.get('Authorization');
     if (API_KEY && authHeader) {  // Only validate if both exist
+      console.log('🔑 Checking authentication');
       if (!authHeader.startsWith('Bearer ') || authHeader.split(' ')[1] !== API_KEY) {
+        console.error('❌ Authentication failed');
         return new Response(
           JSON.stringify({ error: 'Unauthorized' }), 
           { 
@@ -93,10 +99,11 @@ export async function POST(req: NextRequest) {
           }
         );
       }
+      console.log('✅ Authentication successful');
     }
 
     const body = await req.json();
-    console.log('Received request:', body);
+    console.log('📦 Request body:', body);
 
     // Get custom session ID if provided
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
