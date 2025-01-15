@@ -3,9 +3,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
+  const start = Date.now()
   try {
     // Get authenticated user
+    console.log('Starting auth check...')
     const { userId } = await auth()
+    console.log(`Auth check took ${Date.now() - start}ms`)
+    
     if (!userId) {
       console.error('No user ID found in auth session')
       return NextResponse.json(
@@ -14,7 +18,8 @@ export async function GET() {
       )
     }
 
-    console.log('Fetching sessions for user:', userId)
+    console.log('Starting DB query...')
+    const queryStart = Date.now()
     
     // Get all sessions with their messages for this user
     const sessions = await prisma.session.findMany({
@@ -25,8 +30,10 @@ export async function GET() {
         }
       }
     })
+    console.log(`DB query took ${Date.now() - queryStart}ms`)
 
     // Sort sessions by their most recent message
+    const sortStart = Date.now()
     sessions.sort((a, b) => {
       const aLastMessage = a.messages[a.messages.length - 1]
       const bLastMessage = b.messages[b.messages.length - 1]
@@ -36,7 +43,9 @@ export async function GET() {
       
       return new Date(bLastMessage.timestamp).getTime() - new Date(aLastMessage.timestamp).getTime()
     })
+    console.log(`Sorting took ${Date.now() - sortStart}ms`)
 
+    console.log(`Total time: ${Date.now() - start}ms`)
     console.log(`Found ${sessions.length} sessions for user:`, userId)
     
     return NextResponse.json(sessions)

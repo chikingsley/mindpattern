@@ -26,6 +26,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, timestamp(Sort.Desc)])
   @@map("sessions")
 }
 
@@ -39,5 +40,6 @@ model Message {
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+  @@index([sessionId, timestamp(Sort.Asc)])
   @@map("messages")
 }
