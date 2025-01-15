@@ -1,8 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export async function POST(
   request: Request,
@@ -55,7 +53,8 @@ export async function POST(
     
     return NextResponse.json(message)
   } catch (error) {
-    console.error('Error creating message:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error creating message:', errorMessage)
     return NextResponse.json(
       { error: 'Failed to create message' },
       { status: 500 }

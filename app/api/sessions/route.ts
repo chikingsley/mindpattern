@@ -1,8 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
@@ -23,8 +21,7 @@ export async function GET() {
       where: { userId },
       include: {
         messages: {
-          orderBy: { timestamp: 'asc' },
-          take: -2 // Get most recent message
+          orderBy: { timestamp: 'asc' }
         }
       }
     })
@@ -44,7 +41,8 @@ export async function GET() {
     
     return NextResponse.json(sessions)
   } catch (error) {
-    console.error('Error fetching sessions:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error fetching sessions:', errorMessage)
     return NextResponse.json(
       { error: 'Failed to fetch sessions' },
       { status: 500 }
@@ -78,7 +76,8 @@ export async function POST(request: Request) {
     
     return NextResponse.json(session)
   } catch (error) {
-    console.error('Error creating session:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error creating session:', errorMessage)
     return NextResponse.json(
       { error: 'Failed to create session' },
       { status: 500 }
