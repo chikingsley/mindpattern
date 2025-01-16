@@ -3,19 +3,19 @@ import OpenAI from 'openai';
 
 // Environment validation
 const HUME_API_KEY = process.env.HUME_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-realtime-preview-2024-12-17';
-const ALLOWED_MODELS = (process.env.ALLOWED_MODELS || 'gpt-4o-realtime-preview-2024-12-17').split(',').map(m => m.trim());
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'openai/gpt-3.5-turbo';
 
 if (!HUME_API_KEY) {
   console.log('No HUME_API_KEY set - authentication disabled');
 }
 
-if (!ALLOWED_MODELS.includes(OPENAI_MODEL)) {
-  console.warn(`Warning: Model ${OPENAI_MODEL} is not in allowed models list: ${ALLOWED_MODELS.join(', ')}`);
-}
-
 const openai = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+  defaultHeaders: {
+    // "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL,
+    "X-Title": "Hume Chat",
+  }
 });
 
 // Helper function to setup SSE response headers

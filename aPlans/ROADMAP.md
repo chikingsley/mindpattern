@@ -32,27 +32,39 @@
 
 ## Next Steps
 
-### 1. Memory & Context (RAG)
-- [x] Core RAG Implementation
-  - [x] Integrate Jina AI embeddings (late chunking) into chat flow
-  - [x] Set up PG Vector with vector similarity search
-  - [x] Optimize for low latency retrieval
-  - [ ] Add memory context visualization above chat
+### 1. Persistent Chat & Prosody (In Progress)
+- [ ] Chat Persistence
+  - [ ] Separate chat and call state
+  - [ ] Implement session restoration
+  - [ ] Add call resume functionality
+  - [ ] Add connection status indicators
+
+- [ ] Prosody Data Persistence
+  - [ ] Add metadata storage to messages
+  - [ ] Implement prosody data retention
+  - [ ] Add backward compatibility
+  - [ ] Update message retrieval
+
+### 2. Tool Calling & RAG Integration
+- [ ] Tool System Implementation
+  - [ ] Design tool calling architecture
+  - [ ] Add tool registration system
+  - [ ] Implement tool execution pipeline
+  - [ ] Add tool result handling
+
+- [ ] RAG Enhancement
+  - [ ] Add memory context visualization
   - [ ] Show memory influence on responses
-
-- [x] Memory Storage & Retrieval
-  - [x] Implement efficient embedding storage
-  - [x] Add vector similarity search functions
-  - [x] Create memory retrieval pipeline
-  - [x] Add Redis caching for embeddings
-
-- [ ] Memory Visualization & UI
-  - [ ] Add context window above messages
-  - [ ] Show memory influence strength
+  - [ ] Implement context window
   - [ ] Add memory exploration interface
-  - [ ] Implement memory search/filter
 
-### 2. User Profiling & Personalization
+- [ ] Tool-Memory Integration
+  - [ ] Connect tool results to memory
+  - [ ] Add tool history tracking
+  - [ ] Implement tool suggestion system
+  - [ ] Add tool performance analytics
+
+### 3. User Profiling & Personalization
 - [x] Profile System
   - [x] Design comprehensive user profile schema
   - [x] Implement profile storage and retrieval
@@ -86,7 +98,7 @@
   - [ ] Create response style matching
   - [ ] Add emotional resonance tracking
 
-### 3. Document Integration
+### 4. Document Integration
 - [ ] File Upload & Processing
   - [ ] Add PDF upload with metadata
   - [ ] Add image upload with context
@@ -99,14 +111,14 @@
   - [ ] Visualize context influence
   - [ ] Add memory search/filter
 
-### 4. Voice Improvements
+### 5. Voice Improvements
 - [ ] Configuration & Control
   - [ ] Move Hume AI config from dashboard to code
   - [ ] Add fine-tuning options for emotion detection
   - [ ] Improve emotion visualization
   - [ ] Add custom prosody controls
 
-### 5. Core Improvements
+### 6. Core Improvements
 - [ ] Error Handling
   - [x] Add better error messages
   - [x] Improve error recovery
@@ -119,7 +131,7 @@
   - [ ] Optimize memory retrieval
   - [ ] Enhance data syncing
 
-### 6. Pattern Recognition Engine
+### 7. Pattern Recognition Engine
 - [ ] Core Pattern System
   - [ ] Real-time pattern detection during conversations
   - [ ] Pattern confidence scoring and validation
@@ -133,7 +145,7 @@
   - [ ] Pattern visualization in chat context
   - [ ] Pattern strength metrics
 
-### 7. Task Management System
+### 8. Task Management System
 - [ ] Dynamic Task Generation
   - [ ] Natural language task extraction
   - [ ] Context-aware task suggestions
@@ -146,7 +158,7 @@
   - [ ] Task completion analytics
   - [ ] Pattern-based task optimization
 
-### 8. Communication Integration
+### 9. Communication Integration
 - [ ] Phone System Integration
   - [ ] Twilio setup and number management
   - [ ] Real-time call processing
@@ -157,7 +169,7 @@
   - [ ] Cross-platform pattern recognition
   - [ ] Integrated task management
 
-  ### 9. Ambient Intelligence
+### 10. Ambient Intelligence
 - [ ] Continuous Conversation System
   - [ ] Streaming context management
   - [ ] Dynamic memory pruning
