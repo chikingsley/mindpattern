@@ -78,10 +78,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar
-      defaultOpen
       collapsible="offcanvas"
       side="left"
-      variant="default"
+      variant="sidebar"
       {...props}
     >
       <SidebarHeader>
