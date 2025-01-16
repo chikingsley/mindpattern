@@ -30,6 +30,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import type { ChatMessage } from '@/types/database'
 import { useSession } from '@clerk/nextjs'
+import { SESSION_CREATED_EVENT, type SessionCreatedDetail } from '@/components/VoiceSessionManager'
 
 // Basic chat session structure
 interface ChatSession {
@@ -85,6 +86,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (!response.ok) {
         throw new Error('Failed to sync session to backend');
       }
+
+      // Dispatch event for new session
+      window.dispatchEvent(new CustomEvent<SessionCreatedDetail>(SESSION_CREATED_EVENT, {
+        detail: { sessionId: newSession.id }
+      }));
 
       // Clear localStorage when we successfully sync to backend
       localStorage.removeItem('chatSessions');
@@ -196,6 +202,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setSelectedSession(newSession.id);
     setActiveSessionId(newSession.id);
     setLastMessageTime(Date.now());
+
+    // Background sync
+    syncSessionToBackend(newSession);
   };
 
   const selectSession = (id: string | null) => {

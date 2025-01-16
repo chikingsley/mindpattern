@@ -2,11 +2,11 @@ import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 
 // Environment validation
-const API_KEY = process.env.HUME_API_KEY;
+const HUME_API_KEY = process.env.HUME_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-realtime-preview-2024-12-17';
 const ALLOWED_MODELS = (process.env.ALLOWED_MODELS || 'gpt-4o-realtime-preview-2024-12-17').split(',').map(m => m.trim());
 
-if (!API_KEY) {
+if (!HUME_API_KEY) {
   console.log('No HUME_API_KEY set - authentication disabled');
 }
 
@@ -46,32 +46,32 @@ export async function OPTIONS(req: NextRequest) {
   });
 }
 
-export async function GET() {
-  console.log('🎯 SSE Connection established to /api/chat/completions');
-  const stream = new TransformStream();
-  const writer = stream.writable.getWriter();
+// export async function GET() {
+//   console.log('🎯 SSE Connection established to /api/chat/completions');
+//   const stream = new TransformStream();
+//   const writer = stream.writable.getWriter();
   
-  try {
-    const encoder = new TextEncoder();
-    console.log('📡 Sending connected message');
-    await writer.write(encoder.encode('data: {"type":"connected"}\n\n'));
-    console.log('Sent connected message');
+//   try {
+//     const encoder = new TextEncoder();
+//     console.log('📡 Sending connected message');
+//     await writer.write(encoder.encode('data: {"type":"connected"}\n\n'));
+//     console.log('Sent connected message');
     
-    return setupSSEResponse(stream);
-  } catch (error) {
-    console.error('❌ GET Error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Connection failed' }), 
-      { 
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        }
-      }
-    );
-  }
-}
+//     return setupSSEResponse(stream);
+//   } catch (error) {
+//     console.error('❌ GET Error:', error);
+//     return new Response(
+//       JSON.stringify({ error: error instanceof Error ? error.message : 'Connection failed' }), 
+//       { 
+//         status: 500,
+//         headers: {
+//           'Content-Type': 'application/json',
+//           'Access-Control-Allow-Origin': '*',
+//         }
+//       }
+//     );
+//   }
+// }
 
 export async function POST(req: NextRequest) {
   console.log('🚀 POST request received at /api/chat/completions');
@@ -84,12 +84,13 @@ export async function POST(req: NextRequest) {
   try {
     // Only check authentication if API_KEY is set
     const authHeader = req.headers.get('Authorization');
-    if (API_KEY && authHeader) {  // Only validate if both exist
+    if (authHeader) {  // Only validate if auth header exists
       console.log('🔑 Checking authentication');
-      if (!authHeader.startsWith('Bearer ') || authHeader.split(' ')[1] !== API_KEY) {
-        console.error('❌ Authentication failed');
+      const token = authHeader.split(' ')[1];
+      if (!authHeader.startsWith('Bearer ') || !token) {
+        console.error('❌ Authentication failed - invalid format');
         return new Response(
-          JSON.stringify({ error: 'Unauthorized' }), 
+          JSON.stringify({ error: 'Invalid authorization format' }), 
           { 
             status: 401,
             headers: {
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
           }
         );
       }
+      // Token is present and in correct format
       console.log('✅ Authentication successful');
     }
 

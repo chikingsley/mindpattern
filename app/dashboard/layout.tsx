@@ -8,7 +8,9 @@ import { ChatProvider } from "@/app/context/ChatContext";
 import { VoiceProvider } from "@humeai/voice-react";
 import { getHumeAccessToken } from "@/utils/getHumeAccessToken";
 import { ClerkProvider } from '@clerk/nextjs';
+import { currentUser } from '@clerk/nextjs/server';
 import { AppSidebar } from "@/components/app-sidebar";
+import { VoiceSessionManager } from "@/components/VoiceSessionManager";
 import {
   SidebarInset,
   SidebarProvider,
@@ -40,11 +42,21 @@ export default async function RootLayout({
     throw new Error("No access token available");
   }
 
-  const configId = process.env.HUME_CONFIG_ID;
+  // Get user's Hume config ID from Clerk metadata
+  const user = await currentUser()
+  if (!user) {
+    throw new Error("No user found. Please try logging out and back in.");
+  }
+
+  const humeConfigId = user?.publicMetadata.humeConfigId as string
+
+  if (!humeConfigId) {
+    throw new Error("No Hume config ID found. Please try logging out and back in.");
+  }
 
   console.log('Initializing Hume Voice Provider:', {
     accessToken: accessToken ? accessToken.slice(0, 10) + '...' : 'missing',
-    configId: configId ? configId : 'not provided (optional)',
+    configId: humeConfigId,
     humeApiKey: process.env.HUME_API_KEY ? 'present' : 'missing',
     humeSecretKey: process.env.HUME_SECRET_KEY ? 'present' : 'missing',
     env: process.env.NODE_ENV,
@@ -60,7 +72,15 @@ export default async function RootLayout({
         )}
       >
         <ChatProvider>
-          <VoiceProvider auth={{ type: "accessToken", value: accessToken }} configId={configId}>
+          <VoiceProvider 
+            auth={{ type: "accessToken", value: accessToken }} 
+            configId={humeConfigId}
+            sessionSettings={{
+              type: "session_settings",
+              languageModelApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY
+            }}
+          >
+            <VoiceSessionManager />
             <div className="flex h-screen flex-col">
               <Nav />
               <div className="flex flex-1 overflow-hidden">

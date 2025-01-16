@@ -3,9 +3,10 @@ import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { PrismaClient } from '@prisma/client'
 import { createHumeConfig, deleteHumeConfig } from '@/utils/hume'
-import { supabase } from '@/lib/supabase'
+import { createClerkClient } from '@clerk/backend'
 
 const prisma = new PrismaClient()
+const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
 
 async function checkUserExists(userId: string) {
   const count = await prisma.user.count({
@@ -78,6 +79,12 @@ export async function POST(req: Request) {
         throw new Error('User has no username')
       }
 
+      // Get user ID from Clerk
+      const userId = evt.data.id
+      if (!userId) {
+        throw new Error('No user ID provided in webhook data')
+      }
+
       // Create Hume config
       const humeConfig = await createHumeConfig(username, email)
       console.log('Created Hume config:', humeConfig.id)
@@ -85,11 +92,19 @@ export async function POST(req: Request) {
       // Create user in Prisma with Hume config ID
       const user = await prisma.user.create({
         data: {
-          id: evt.data.id,
+          id: userId,
           configId: humeConfig.id
         }
       })
-      console.log('Created user:', user.id)
+      console.log('Created user in Prisma:', user.id)
+
+      // Update Clerk user metadata
+      await clerkClient.users.updateUser(userId, {
+        publicMetadata: {
+          humeConfigId: humeConfig.id
+        }
+      })
+      console.log('Updated Clerk metadata with config ID')
 
       return new Response('Success: User created', { status: 200 })
     } catch (error) {

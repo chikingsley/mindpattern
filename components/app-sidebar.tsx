@@ -63,7 +63,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create session');
+        const error = await response.json();
+        throw new Error(`Failed to create session: ${error.error || response.statusText}`);
       }
       
       const newSession = await response.json();
@@ -71,6 +72,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       addSession(newSession);
     } catch (error) {
       console.error('Failed to start call:', error);
+      throw error; // Re-throw to see the full error in console
     }
   };
 
