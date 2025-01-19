@@ -3,6 +3,27 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface Pattern {
+  type: string;
+  frequency: string;
+  correlation: string;
+  insight: string;
+}
+
+interface Insight {
+  title: string;
+  points: string[];
+  recommendation: string;
+}
+
+interface ChatMessageType {
+  type: 'user' | 'ai';
+  content: string;
+  time: string;
+  pattern?: Pattern;
+  insight?: Insight;
+}
+
 const FeatureDemoSection = () => {
   const [demoState, setDemoState] = useState({
     messageIndex: 0,
@@ -11,7 +32,7 @@ const FeatureDemoSection = () => {
   });
 
   // Simulated chat flow
-  const chatSequence = [
+  const chatSequence: ChatMessageType[] = [
     {
       type: 'user',
       content: "I'm nervous about my presentation tomorrow...",
@@ -67,7 +88,7 @@ const FeatureDemoSection = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const ChatMessage = ({ message }) => (
+  const ChatMessage = ({ message }: { message: ChatMessageType }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -84,7 +105,7 @@ const FeatureDemoSection = () => {
     </motion.div>
   );
 
-  const PatternCard = ({ pattern }) => (
+  const PatternCard = ({ pattern }: { pattern: Pattern }) => (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -99,16 +120,16 @@ const FeatureDemoSection = () => {
         <div>
           <h3 className="text-base font-medium text-gray-900">{pattern.type}</h3>
           <div className="mt-2 space-y-1">
-            <p className="text-sm text-gray-600">🔄 {pattern.frequency}</p>
-            <p className="text-sm text-gray-600">📈 {pattern.correlation}</p>
-            <p className="text-sm text-purple-600">💡 {pattern.insight}</p>
+            <p className="text-sm text-gray-600"> {pattern.frequency}</p>
+            <p className="text-sm text-gray-600"> {pattern.correlation}</p>
+            <p className="text-sm text-purple-600"> {pattern.insight}</p>
           </div>
         </div>
       </div>
     </motion.div>
   );
 
-  const InsightCard = ({ insight }) => (
+  const InsightCard = ({ insight }: { insight: Insight }) => (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
