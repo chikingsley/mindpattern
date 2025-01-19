@@ -113,7 +113,7 @@
 
 ### 5. Voice Improvements
 - [ ] Configuration & Control
-  - [ ] Move Hume AI config from dashboard to code
+  - [x] Move Hume AI config from dashboard to code
   - [ ] Add fine-tuning options for emotion detection
   - [ ] Improve emotion visualization
   - [ ] Add custom prosody controls

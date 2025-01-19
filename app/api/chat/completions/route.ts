@@ -1,9 +1,14 @@
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
+import MemoryClient from 'mem0ai';
+import { BASE_PROMPT } from '@/utils/prompts/base-prompt';
 
 // Environment validation
 const HUME_API_KEY = process.env.HUME_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'openai/gpt-3.5-turbo';
+const MEM0_API_KEY = process.env.MEM0_API_KEY;
+if (!MEM0_API_KEY) throw new Error('MEM0_API_KEY is required');
+const client = new MemoryClient({ apiKey: MEM0_API_KEY });
 
 if (!HUME_API_KEY) {
   console.log('No HUME_API_KEY set - authentication disabled');
@@ -45,33 +50,6 @@ export async function OPTIONS(req: NextRequest) {
     },
   });
 }
-
-// export async function GET() {
-//   console.log('🎯 SSE Connection established to /api/chat/completions');
-//   const stream = new TransformStream();
-//   const writer = stream.writable.getWriter();
-  
-//   try {
-//     const encoder = new TextEncoder();
-//     console.log('📡 Sending connected message');
-//     await writer.write(encoder.encode('data: {"type":"connected"}\n\n'));
-//     console.log('Sent connected message');
-    
-//     return setupSSEResponse(stream);
-//   } catch (error) {
-//     console.error('❌ GET Error:', error);
-//     return new Response(
-//       JSON.stringify({ error: error instanceof Error ? error.message : 'Connection failed' }), 
-//       { 
-//         status: 500,
-//         headers: {
-//           'Content-Type': 'application/json',
-//           'Access-Control-Allow-Origin': '*',
-//         }
-//       }
-//     );
-//   }
-// }
 
 export async function POST(req: NextRequest) {
   console.log('🚀 POST request received at /api/chat/completions');
@@ -117,7 +95,9 @@ export async function POST(req: NextRequest) {
     const prosodyData: { [key: string]: any } = {};
     
     // Handle Hume message format
-    const messages = body.messages.map((msg: any) => {
+    const messages = [
+      { role: 'system', content: BASE_PROMPT },
+      ...body.messages.map((msg: any) => {
       // Store prosody data for this message if available
       if (msg.models?.prosody?.scores) {
         prosodyData[msg.content] = msg.models.prosody.scores;
@@ -128,7 +108,7 @@ export async function POST(req: NextRequest) {
         role: msg.role,
         content: msg.content
       };
-    });
+    })];
 
     console.log('Processing messages:', messages);
     console.log('Prosody data:', prosodyData);

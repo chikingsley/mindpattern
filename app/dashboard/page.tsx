@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+import { HydrationOverlay } from "@builder.io/react-hydration-overlay";
 
 export const runtime = 'edge';
 
@@ -10,7 +11,9 @@ export default function Page() {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex-1 min-h-0">
-        <ChatComponent />
+        <HydrationOverlay>
+          <ChatComponent />
+        </HydrationOverlay>
       </div>
     </div>
   );
