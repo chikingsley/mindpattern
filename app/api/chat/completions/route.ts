@@ -31,8 +31,8 @@
  *    - Provides appropriate error responses
  * 
  * Environment Variables Required:
- * - OPENROUTER_API_KEY: API key for OpenRouter
- * - OPENAI_MODEL: Model identifier (e.g., 'anthropic/claude-3.5-sonnet')
+ * - OPEN_ROUTER_API_KEY: API key for OpenRouter
+ * - OPEN_ROUTER_MODEL: Model identifier (e.g., 'anthropic/claude-3.5-sonnet')
  * - MEM0_API_KEY: API key for memory client
  * - HUME_API_KEY: Optional, for authentication
  */
@@ -40,22 +40,36 @@
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import MemoryClient from 'mem0ai';
-import { BASE_PROMPT } from '@/utils/prompts/base-prompt';
+import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt';
+import { ContextTracker, SupportedModel, MODEL_LIMITS } from '@/lib/tracker';
 
 // Environment validation
 const HUME_API_KEY = process.env.HUME_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'openai/gpt-3.5-turbo';
-const MEM0_API_KEY = process.env.MEM0_API_KEY;
-if (!MEM0_API_KEY) throw new Error('MEM0_API_KEY is required');
-const client = new MemoryClient({ apiKey: MEM0_API_KEY });
-
 if (!HUME_API_KEY) {
   console.log('No HUME_API_KEY set - authentication disabled');
 }
 
+// Get model from env, validate it's a supported model
+const OPEN_ROUTER_MODEL = process.env.OPEN_ROUTER_MODEL;
+if (!OPEN_ROUTER_MODEL) {
+  throw new Error('OPEN_ROUTER_MODEL is required');
+}
+
+// Validate model is supported
+if (!(OPEN_ROUTER_MODEL in MODEL_LIMITS)) {
+  throw new Error(`Unsupported model: ${OPEN_ROUTER_MODEL}. Must be one of: ${Object.keys(MODEL_LIMITS).join(', ')}`);
+}
+
+// Now TypeScript knows OPEN_ROUTER_MODEL is definitely a SupportedModel
+const validatedModel: SupportedModel = OPEN_ROUTER_MODEL as SupportedModel;
+
+const MEM0_API_KEY = process.env.MEM0_API_KEY;
+if (!MEM0_API_KEY) throw new Error('MEM0_API_KEY is required');
+const client = new MemoryClient({ apiKey: MEM0_API_KEY });
+
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: process.env.OPEN_ROUTER_API_KEY,
   defaultHeaders: {
     // "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL,
     "X-Title": "Hume Chat",
@@ -91,8 +105,8 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  console.log('🚀 POST request received at /api/chat/completions');
-  console.log('📨 Headers:', Object.fromEntries(req.headers.entries()));
+  // console.log('🚀 POST request received at /api/chat/completions');
+  // console.log('📨 Headers:', Object.fromEntries(req.headers.entries()));
   
   const encoder = new TextEncoder();
   const stream = new TransformStream();
@@ -102,7 +116,7 @@ export async function POST(req: NextRequest) {
     // Only check authentication if API_KEY is set
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {  // Only validate if auth header exists
-      console.log('🔑 Checking authentication');
+      // console.log('🔑 Checking authentication');
       const token = authHeader.split(' ')[1];
       if (!authHeader.startsWith('Bearer ') || !token) {
         console.error('❌ Authentication failed - invalid format');
@@ -122,7 +136,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    console.log('📦 Request body:', body);
+    // console.log('📦 Request body:', body);
 
     // Get custom session ID if provided
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
@@ -133,6 +147,9 @@ export async function POST(req: NextRequest) {
     // Store prosody data to use in responses
     const prosodyData: { [key: string]: any } = {};
     
+    // Initialize context tracker with the specified model
+    const contextTracker = new ContextTracker(validatedModel);
+
     // Handle Hume message format
     const messages = [
       { role: 'system', content: BASE_PROMPT },
@@ -149,13 +166,15 @@ export async function POST(req: NextRequest) {
       };
     })];
 
-    console.log('Processing messages:', messages);
-    console.log('Prosody data:', prosodyData);
+    // console.log('Processing messages:', messages);
+    // console.log('Prosody data:', prosodyData);
 
     // Start OpenAI stream with configured model
     const completion = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: messages,
+      model: validatedModel,
+      messages: contextTracker.shouldTruncate(messages) ? 
+        contextTracker.truncateMessages(messages) : 
+        messages,
       stream: true,
     });
 
@@ -167,6 +186,12 @@ export async function POST(req: NextRequest) {
         let lastProsody = Object.values(prosodyData).pop() || {}; // Get most recent prosody scores
         
         for await (const chunk of completion) {
+          // Get context stats if available
+          if (chunk.usage) {
+            const stats = await contextTracker.getStats(chunk);
+            console.log('📊 Context stats:', stats);
+          }
+
           if (chunk.choices[0]?.delta?.content) {
             const content = chunk.choices[0].delta.content;
             fullResponse += content;
@@ -176,7 +201,7 @@ export async function POST(req: NextRequest) {
               id: chunk.id,
               object: 'chat.completion.chunk',
               created: chunk.created,
-              model: OPENAI_MODEL,
+              model: validatedModel,
               choices: [{
                 index: 0,
                 delta: {

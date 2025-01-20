@@ -44,7 +44,6 @@ Phase 1 focuses on three core areas:
 - **Tech Stack**:
   - Custom hooks
   - Local storage for preferences
-  - Redis for caching
 
 ### 2. Voice Configuration
 

@@ -1,5 +1,4 @@
 import { HumeConfig, HumeError } from '../types/hume'
-import { BASE_PROMPT } from './prompts/base-prompt'
 
 function getHumeApiKey() {
   const apiKey = process.env.HUME_API_KEY

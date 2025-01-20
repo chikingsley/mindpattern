@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase';
 import { migrateLocalStorageToSupabase } from '@/utils/migrateLocalStorage';
-import { testRAG, insertDummyData } from '@/utils/testRAG';
+import { testRAG, insertDummyData } from '@/utils/embeddings/testRAG';
 
 export default function TestRAGPage() {
   const { user } = useUser();

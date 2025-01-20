@@ -54,13 +54,13 @@ export default async function RootLayout({
     throw new Error("No Hume config ID found. Please try logging out and back in.");
   }
 
-  console.log('Initializing Hume Voice Provider:', {
-    accessToken: accessToken ? accessToken.slice(0, 10) + '...' : 'missing',
-    configId: humeConfigId,
-    humeApiKey: process.env.HUME_API_KEY ? 'present' : 'missing',
-    humeSecretKey: process.env.HUME_SECRET_KEY ? 'present' : 'missing',
-    env: process.env.NODE_ENV,
-  });
+  // console.log('Initializing Hume Voice Provider:', {
+  //   accessToken: accessToken ? accessToken.slice(0, 10) + '...' : 'missing',
+  //   configId: humeConfigId,
+  //   humeApiKey: process.env.HUME_API_KEY ? 'present' : 'missing',
+  //   humeSecretKey: process.env.HUME_SECRET_KEY ? 'present' : 'missing',
+  //   env: process.env.NODE_ENV,
+  // });
 
   return (
     <ClerkProvider>

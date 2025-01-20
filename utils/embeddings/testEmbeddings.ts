@@ -1,8 +1,7 @@
 // Load env first
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { generateEmbedding, generateEmbeddings } from './embeddings';
-import { deleteCache, CACHE_KEYS } from './redis';
+import { generateEmbedding, generateEmbeddings } from './utils/embeddings';
 
 // Then configure env
 config({ path: resolve(__dirname, '../.env') });
@@ -11,10 +10,6 @@ config({ path: resolve(__dirname, '../.env') });
 
 async function testEmbeddingCaching() {
   console.log('\n=== Testing Embedding Caching ===');
-  
-  // Clear cache first
-  await deleteCache(CACHE_KEYS.EMBEDDINGS, '*');
-  console.log('Cleared existing cache');
 
   const testInput = "I'm feeling anxious about my relationship with Sarah";
   console.log('\nTest input:', testInput);
@@ -40,10 +35,6 @@ async function testEmbeddingCaching() {
 
 async function testBatchProcessing() {
   console.log('\n=== Testing Batch Processing ===');
-
-  // Clear cache first
-  await deleteCache(CACHE_KEYS.EMBEDDINGS, '*');
-  console.log('Cleared existing cache');
 
   const testInputs = [
     "I'm feeling anxious about my relationship with Sarah",

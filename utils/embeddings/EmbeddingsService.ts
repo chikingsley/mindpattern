@@ -1,4 +1,4 @@
-import { generateEmbedding, generateEmbeddings } from '@/utils/embeddings';
+import { generateEmbedding, generateEmbeddings } from '@/utils/embeddings/embeddings';
 
 const JINA_API_KEY = process.env.NEXT_PUBLIC_JINA_API_KEY;
 
