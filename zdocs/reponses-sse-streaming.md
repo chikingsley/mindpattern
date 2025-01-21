@@ -1,3 +1,5 @@
+Open Router API
+
 # API Response Schema
 
 Responses are largely consistent with the OpenAI Chat API. This means that choices is always an array, even if the model only returns one completion. Each choice will contain a delta property if a stream was requested and a message property otherwise. This makes it easier to use the same code for all models.
