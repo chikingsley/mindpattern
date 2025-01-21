@@ -25,8 +25,6 @@ export default function Controls() {
 
   const handleEndCall = () => {
     disconnect();
-    // Clear selected session when call ends
-    selectSession(null);
   };
 
   return (
