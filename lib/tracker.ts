@@ -20,6 +20,15 @@
 
 // Available models and their token limits
 export const MODEL_LIMITS = {
+  'gpt-4o': 128000,
+  'chatgpt-4o-latest': 128000,
+  'gpt-4o-mini': 128000,
+  'o1': 128000,
+  'o1-mini': 128000,
+  'o1-preview': 128000,
+  'gpt-4o-realtime-preview': 128000,
+  'gpt-4o-mini-realtime-preview': 128000,
+  'gpt-4o-audio-preview': 128000,
   'google/gemini-flash-1.5-8b': 1000000,
   'google/gemini-flash-1.5': 1000000,
   'deepseek/deepseek-chat': 64000,

@@ -150,6 +150,9 @@ importers:
       ts-pattern:
         specifier: ^5.6.0
         version: 5.6.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.24.1
     devDependencies:
       '@babel/core':
         specifier: ^7.26.0
