@@ -45,7 +45,8 @@ export async function POST(
       data: {
         sessionId: params.sessionId,
         role: messageData.role,
-        content: messageData.content
+        content: messageData.content,
+        metadata: messageData.metadata || {}  
       }
     })
 

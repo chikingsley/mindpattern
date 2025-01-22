@@ -4,6 +4,7 @@ import { WebhookEvent } from '@clerk/nextjs/server'
 import { PrismaClient } from '@prisma/client'
 import { createHumeConfig, deleteHumeConfig } from '@/utils/hume'
 import { createClerkClient } from '@clerk/backend'
+import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt'
 
 const prisma = new PrismaClient()
 const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
@@ -89,11 +90,12 @@ export async function POST(req: Request) {
       const humeConfig = await createHumeConfig(username, email)
       console.log('Created Hume config:', humeConfig.id)
 
-      // Create user in Prisma with Hume config ID
+      // Create user in Prisma with Hume config ID and system prompt
       const user = await prisma.user.create({
         data: {
           id: userId,
-          configId: humeConfig.id
+          configId: humeConfig.id,
+          systemPrompt: BASE_PROMPT
         }
       })
       console.log('Created user in Prisma:', user.id)
