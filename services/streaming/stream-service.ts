@@ -1,5 +1,3 @@
-import { TransformStream } from 'stream/web';
-
 export class StreamingService {
   private static readonly DEFAULT_HEADERS = {
     'Content-Type': 'text/event-stream',
@@ -12,8 +10,8 @@ export class StreamingService {
     'Access-Control-Allow-Credentials': 'true',
   };
 
-  setupSSEResponse(stream: ReadableStream): Response {
-    return new Response(stream, {
+  setupSSEResponse(stream: { readable: ReadableStream }): Response {
+    return new Response(stream.readable, {
       headers: StreamingService.DEFAULT_HEADERS,
     });
   }

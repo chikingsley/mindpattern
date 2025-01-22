@@ -1,4 +1,4 @@
-// Base response types
+// Base stream types
 export interface StreamChunk {
   id: string;
   created: number;
@@ -14,7 +14,7 @@ export interface StreamChunk {
   }>;
 }
 
-// Hume-specific response types
+// Hume-specific stream types
 export interface HumeStreamChunk extends StreamChunk {
   choices: Array<{
     index: number;
@@ -26,7 +26,7 @@ export interface HumeStreamChunk extends StreamChunk {
     logprobs: any | null;
     models?: {
       prosody?: {
-        scores: any;
+        scores: Record<string, number>;
       };
     };
     time?: {
@@ -38,7 +38,7 @@ export interface HumeStreamChunk extends StreamChunk {
   system_fingerprint?: string;
 }
 
-// Letta-specific response types
+// Letta-specific stream types
 export interface LettaStreamChunk {
   id: string;
   date: string;

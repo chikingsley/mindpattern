@@ -53,22 +53,6 @@ const openai = new OpenAI({
 const validatedModel = getModelName(config.USE_OPENROUTER);
 const streamingService = new StreamingService();
 
-// Helper function to setup SSE response headers
-function setupSSEResponse(stream: TransformStream) {
-  return new Response(stream.readable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': '*',
-      'Access-Control-Allow-Credentials': 'true',
-    },
-  });
-}
-
 // Update the handleToolCalls function to be more robust
 async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]> {
   const results: ToolCallResult[] = [];
@@ -392,7 +376,7 @@ export async function POST(req: NextRequest) {
       }
     })();
 
-    return setupSSEResponse(stream);
+    return streamingService.setupSSEResponse(stream);
   } catch (error) {
     console.error('POST Error:', error);
     return streamingService.setupErrorResponse(

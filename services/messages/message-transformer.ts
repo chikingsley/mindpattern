@@ -1,15 +1,15 @@
-import { HumeStreamChunk, LettaStreamChunk } from './types';
+import { HumeStreamChunk, LettaStreamChunk } from '../streaming/stream-types';
 
-export class ResponseTransformer {
+export class MessageTransformer {
   private startTime: number;
-  private lastProsodyScores: any;
+  private lastProsodyScores: Record<string, number>;
 
   constructor() {
     this.startTime = Date.now();
     this.lastProsodyScores = {};
   }
 
-  updateProsodyScores(scores: any) {
+  updateProsodyScores(scores: Record<string, number>) {
     this.lastProsodyScores = scores;
   }
 
