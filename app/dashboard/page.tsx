@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 import { HydrationOverlay } from "@builder.io/react-hydration-overlay";
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 const ChatComponent = dynamic(() => import("@/components/Chat"), {
   loading: () => <div>Loading...</div>

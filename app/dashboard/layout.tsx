@@ -11,21 +11,12 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { currentUser } from '@clerk/nextjs/server';
 import { AppSidebar } from "@/components/app-sidebar";
 import { VoiceSessionManager } from "@/components/VoiceSessionManager";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { prisma } from "@/lib/prisma";
+
+export const runtime = 'nodejs'
 
 export const metadata: Metadata = {
   title: "MindPattern Dashboard",
@@ -48,7 +39,8 @@ export default async function RootLayout({
   if (!user) {
     throw new Error("No user found. Please try logging out and back in.");
   }
-
+  // Add this temporary console.log right before your prisma query
+  console.log('Runtime environment:', process.version); // This only works in Node.js
   // Get associated Prisma user data
   const prismaUser = await prisma.user.findUnique({
     where: { id: user.id },

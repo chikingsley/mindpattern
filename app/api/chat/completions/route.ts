@@ -39,7 +39,6 @@
 
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
-import MemoryClient from 'mem0ai';
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt';
 import { ContextTracker, SupportedModel, MODEL_LIMITS } from '@/lib/tracker';
 
@@ -51,21 +50,12 @@ if (!HUME_API_KEY) {
 
 // Get model from env, validate it's a supported model
 const OPEN_ROUTER_MODEL = process.env.OPEN_ROUTER_MODEL;
-if (!OPEN_ROUTER_MODEL) {
-  throw new Error('OPEN_ROUTER_MODEL is required');
-}
-
+if (!OPEN_ROUTER_MODEL) throw new Error('OPEN_ROUTER_MODEL is required');
 // Validate model is supported
-if (!(OPEN_ROUTER_MODEL in MODEL_LIMITS)) {
-  throw new Error(`Unsupported model: ${OPEN_ROUTER_MODEL}. Must be one of: ${Object.keys(MODEL_LIMITS).join(', ')}`);
-}
+if (!Object.keys(MODEL_LIMITS).includes(OPEN_ROUTER_MODEL)) throw new Error(`Unsupported model: ${OPEN_ROUTER_MODEL}. Supported models: ${Object.keys(MODEL_LIMITS).join(', ')}`);
 
 // Now TypeScript knows OPEN_ROUTER_MODEL is definitely a SupportedModel
 const validatedModel: SupportedModel = OPEN_ROUTER_MODEL as SupportedModel;
-
-const MEM0_API_KEY = process.env.MEM0_API_KEY;
-if (!MEM0_API_KEY) throw new Error('MEM0_API_KEY is required');
-const client = new MemoryClient({ apiKey: MEM0_API_KEY });
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -140,9 +130,7 @@ export async function POST(req: NextRequest) {
 
     // Get custom session ID if provided
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
-    if (customSessionId) {
-      console.log('Custom session ID:', customSessionId);
-    }
+    // if (customSessionId) console.log('Custom session ID:', customSessionId);
 
     // Store prosody data to use in responses
     const prosodyData: { [key: string]: any } = {};
