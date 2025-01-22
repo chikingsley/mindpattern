@@ -41,7 +41,7 @@ import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt';
 import { ContextTracker } from '@/lib/tracker';
-import { ToolCall, ToolCallResult, tools } from '@/types/tools';
+import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from '@/types/tools';
 import { config, getBaseUrl, getApiKey, getModelName } from '@/lib/config';
 
 const openai = new OpenAI({
@@ -73,53 +73,28 @@ async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]>
   const results: ToolCallResult[] = [];
   
   for (const toolCall of toolCalls) {
-    if (toolCall.function.name === "get_current_weather") {
-      try {
-        // Safely extract arguments using regex instead of JSON.parse
-        const argStr = toolCall.function.arguments;
-        const locationMatch = argStr.match(/location["']?\s*:\s*["']([^"']+)["']/);
-        const unitMatch = argStr.match(/unit["']?\s*:\s*["']([^"']+)["']/);
-        
-        if (!locationMatch) {
-          console.error('No location found in arguments:', argStr);
+    try {
+      let result: ToolCallResult;
+      
+      switch (toolCall.function.name) {
+        case "get_current_weather":
+          result = await handleWeather(toolCall);
+          console.log('Successfully processed weather request');
+          break;
+          
+        case "update_user_profile":
+          result = await handleUserProfile(toolCall);
+          console.log('Successfully updated user profile');
+          break;
+          
+        default:
+          console.warn('Unknown tool called:', toolCall.function.name);
           continue;
-        }
-
-        const location = locationMatch[1].toLowerCase();
-        const unit = unitMatch ? unitMatch[1] as 'celsius' | 'fahrenheit' : 'celsius';
-        
-        let result;
-        if (location.includes("tokyo")) {
-          result = { location, temperature: "10", unit };
-        } else if (location.includes("san francisco")) {
-          result = { location, temperature: "72", unit };
-        } else {
-          result = { location, temperature: "22", unit };
-        }
-        
-        results.push({
-          tool_call_id: toolCall.id,
-          output: JSON.stringify(result)
-        });
-
-        console.log('Successfully processed weather request for:', location);
-      } catch (error) {
-        console.error('Error processing tool call:', error);
-        console.error('Tool call data:', {
-          name: toolCall.function.name,
-          args: toolCall.function.arguments
-        });
-        
-        // Return a fallback response instead of failing
-        results.push({
-          tool_call_id: toolCall.id,
-          output: JSON.stringify({
-            error: "Could not process weather request",
-            temperature: "22",
-            unit: "celsius"
-          })
-        });
       }
+      
+      results.push(result);
+    } catch (error) {
+      console.error(`Error processing ${toolCall.function.name}:`, error);
     }
   }
   
