@@ -86,6 +86,16 @@ export async function POST(req: Request) {
         throw new Error('No user ID provided in webhook data')
       }
 
+      const firstName = evt.data.first_name 
+      if (!firstName) {
+        throw new Error('No first name provided in webhook data')
+      }
+
+      const lastName = evt.data.last_name 
+      if (!lastName) {
+        throw new Error('No last name provided in webhook data')
+      }
+
       // Create Hume config
       const humeConfig = await createHumeConfig(username, email)
       console.log('Created Hume config:', humeConfig.id)
@@ -94,6 +104,9 @@ export async function POST(req: Request) {
       const user = await prisma.user.create({
         data: {
           id: userId,
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
           configId: humeConfig.id,
           systemPrompt: BASE_PROMPT
         }

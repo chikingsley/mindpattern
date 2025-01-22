@@ -25,6 +25,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
+import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "MindPattern Dashboard",
@@ -48,7 +49,22 @@ export default async function RootLayout({
     throw new Error("No user found. Please try logging out and back in.");
   }
 
-  const humeConfigId = user?.publicMetadata.humeConfigId as string
+  // Get associated Prisma user data
+  const prismaUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      configId: true,
+      systemPrompt: true
+    }
+  });
+
+  if (!prismaUser) {
+    throw new Error("No Prisma user found. Database sync issue.");
+  }
+
+  // Destructure with default values for type safety
+  const { configId, systemPrompt } = prismaUser;
+  const humeConfigId = configId || user?.publicMetadata.humeConfigId as string
 
   if (!humeConfigId) {
     throw new Error("No Hume config ID found. Please try logging out and back in.");
@@ -77,7 +93,8 @@ export default async function RootLayout({
             configId={humeConfigId}
             sessionSettings={{
               type: "session_settings",
-              languageModelApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY
+              systemPrompt: systemPrompt ?? undefined,
+              languageModelApiKey: process.env.OPEN_ROUTER_API_KEY
             }}
           >
             <VoiceSessionManager />
