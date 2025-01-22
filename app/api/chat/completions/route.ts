@@ -43,14 +43,15 @@ import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt';
 import { ContextTracker } from '@/lib/tracker';
 import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from '@/types/tools';
 import { config, getBaseUrl, getApiKey, getModelName } from '@/lib/config';
+import { StreamingService } from '@/services/responses/streaming';
 
 const openai = new OpenAI({
   apiKey: getApiKey(config.USE_OPENROUTER),
   baseURL: getBaseUrl(config.USE_OPENROUTER)
 });
 
-// Use the helper function instead
 const validatedModel = getModelName(config.USE_OPENROUTER);
+const streamingService = new StreamingService();
 
 // Helper function to setup SSE response headers
 function setupSSEResponse(stream: TransformStream) {
@@ -97,26 +98,14 @@ async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]>
       console.error(`Error processing ${toolCall.function.name}:`, error);
     }
   }
-  
   return results;
 }
 
 export async function OPTIONS(req: NextRequest) {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': '*',
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Max-Age': '86400'
-    },
-  });
+  return streamingService.setupCORSResponse();
 }
 
 export async function POST(req: NextRequest) {
-  // console.log('🚀 POST request received at /api/chat/completions');
-  // console.log('📨 Headers:', Object.fromEntries(req.headers.entries()));
-  
   const encoder = new TextEncoder();
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -125,31 +114,18 @@ export async function POST(req: NextRequest) {
     // Only check authentication if API_KEY is set
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {  // Only validate if auth header exists
-      // console.log('🔑 Checking authentication');
       const token = authHeader.split(' ')[1];
       if (!authHeader.startsWith('Bearer ') || !token) {
         console.error('❌ Authentication failed - invalid format');
-        return new Response(
-          JSON.stringify({ error: 'Invalid authorization format' }), 
-          { 
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            }
-          }
-        );
+        return streamingService.setupErrorResponse('Invalid authorization format', 401);
       }
-      // Token is present and in correct format
       console.log('✅ Authentication successful');
     }
 
     const body = await req.json();
-    // console.log('📦 Request body:', body);
 
     // Get custom session ID if provided
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
-    // if (customSessionId) console.log('Custom session ID:', customSessionId);
 
     // Store prosody data to use in responses
     const prosodyData: { [key: string]: any } = {};
@@ -172,9 +148,6 @@ export async function POST(req: NextRequest) {
       };
     })];
 
-    // console.log('Processing messages:', messages);
-    // console.log('Prosody data:', prosodyData);
-    
     // Start OpenAI stream with configured model
     const stream2 = await openai.chat.completions.create({
       model: getModelName(config.USE_OPENROUTER),
@@ -422,16 +395,8 @@ export async function POST(req: NextRequest) {
     return setupSSEResponse(stream);
   } catch (error) {
     console.error('POST Error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to process request' }), 
-      { 
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': 'true'
-        }
-      }
+    return streamingService.setupErrorResponse(
+      error instanceof Error ? error.message : 'Failed to process request'
     );
   }
 }

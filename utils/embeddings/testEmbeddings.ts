@@ -1,7 +1,7 @@
 // Load env first
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { generateEmbedding, generateEmbeddings } from './utils/embeddings';
+import { generateEmbedding, generateEmbeddings } from './embeddings';
 
 // Then configure env
 config({ path: resolve(__dirname, '../.env') });

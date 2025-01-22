@@ -13,7 +13,8 @@ export async function generateEmbedding(input: string, options?: EmbeddingOption
   }
 
   const result = await generateEmbeddings([input], options);
-  const embedding = result[0] || null;
+  return result[0] || null;
+}
 
 async function processBatch(batch: string[], task: JinaTask): Promise<(number[] | null)[]> {
   const data = {
