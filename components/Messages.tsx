@@ -55,16 +55,21 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
             prosody: lastMessage.models?.prosody?.scores ? 
               Object.fromEntries(
                 Object.entries(lastMessage.models.prosody.scores)
-                  .map(([key, value]) => [key, Number(value)])
+                  .map(([key, value]) => {
+                    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+                    return [key, isNaN(numValue) ? 0 : numValue];
+                  })
               ) : undefined
           }
         });
 
-        // Scroll to bottom after adding new message
+        // Use requestAnimationFrame for scrolling to avoid hydration issues
         if (scrollRef.current) {
-          scrollRef.current.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: 'smooth'
+          requestAnimationFrame(() => {
+            scrollRef.current?.scrollTo({
+              top: scrollRef.current.scrollHeight,
+              behavior: 'smooth'
+            });
           });
         }
       }

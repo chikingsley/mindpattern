@@ -19,8 +19,13 @@ export default function Expressions({
 }: {
   values: Record<string, number>;
 }) {
+  // Ensure all values are valid numbers
+  const safeValues = Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [key, typeof value === 'number' && !isNaN(value) ? value : 0])
+  );
+
   const top3 = R.pipe(
-    values,
+    safeValues,
     R.entries(),
     R.sortBy(R.pathOr([1], 0)),
     R.reverse(),

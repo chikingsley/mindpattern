@@ -6,6 +6,8 @@ import { ToolService } from '@/services/tools/tool-service';
 import { config, getBaseUrl, getApiKey, getModelName } from '@/lib/config';
 import { StreamingService } from '@/services/streaming/stream-service';
 import { embeddingsService } from '@/services/embeddings/EmbeddingsService';
+import { expressionColors } from '@/services/hume/expressions/expressionColors';
+import { expressionLabels } from '@/services/hume/expressions/expressionLabels';
 
 const openai = new OpenAI({
   apiKey: getApiKey(config.USE_OPENROUTER),
@@ -48,34 +50,48 @@ export async function POST(req: NextRequest) {
     const messages = [
       { role: 'system', content: BASE_PROMPT },
       ...await Promise.all(body.messages.filter((msg: any) => msg?.content?.trim()).map(async (msg: any) => {
-        try {
-          // Store prosody data for this message if available
-          if (msg.models?.prosody?.scores) {
-            prosodyData[msg.content] = msg.models.prosody.scores;
-          }
+        // Enrich prosody data with colors and labels
+        let prosodyMetadata = {};
+        if (msg.models?.prosody?.scores) {
+          prosodyMetadata = {
+            prosody: {
+              scores: msg.models.prosody.scores,
+              colors: Object.fromEntries(
+                Object.entries(msg.models.prosody.scores)
+                  .map(([key]) => [key, expressionColors[key as keyof typeof expressionColors]])
+              ),
+              labels: Object.fromEntries(
+                Object.entries(msg.models.prosody.scores)
+                  .map(([key]) => [key, expressionLabels[key]])
+              )
+            }
+          };
+        }
 
+        try {
           // Store message with embeddings
           await embeddingsService.storeMessageAndVector(
             msg.content,
             userId,
             customSessionId || 'default-session',
             msg.role,
-            { prosody: msg.models?.prosody?.scores }
+            prosodyMetadata
           );
-
-          return {
-            role: msg.role,
-            content: msg.content,
-            ...(msg.models?.prosody?.scores && { prosody: msg.models.prosody.scores })
-          };
         } catch (error) {
-          console.error('Error processing message:', error);
-          // Return the message without storing it rather than failing the whole request
-          return {
-            role: msg.role,
-            content: msg.content
-          };
+          console.error('Error storing message with vector:', error, {
+            content: msg.content.substring(0, 100),
+            userId,
+            sessionId: customSessionId,
+            role: msg.role
+          });
+          // Continue without failing - storage error shouldn't break the UI
         }
+
+        return {
+          role: msg.role,
+          content: msg.content,
+          ...(prosodyMetadata && { metadata: prosodyMetadata })
+        };
       }))
     ];
 
@@ -218,11 +234,19 @@ export async function POST(req: NextRequest) {
                 },
                 finish_reason: null,
                 logprobs: null,
-                models: {
+                models: lastProsody ? {
                   prosody: {
-                    scores: lastProsody
+                    scores: lastProsody,
+                    colors: Object.fromEntries(
+                      Object.entries(lastProsody)
+                        .map(([key]) => [key, expressionColors[key as keyof typeof expressionColors]])
+                    ),
+                    labels: Object.fromEntries(
+                      Object.entries(lastProsody)
+                        .map(([key]) => [key, expressionLabels[key]])
+                    )
                   }
-                },
+                } : {},
                 time: {
                   begin: startTime,
                   end: Date.now()
@@ -238,11 +262,26 @@ export async function POST(req: NextRequest) {
         
         // Store the complete assistant response with embeddings
         if (fullResponse) {
+          const prosodyMetadata = lastProsody ? {
+            prosody: {
+              scores: lastProsody,
+              colors: Object.fromEntries(
+                Object.entries(lastProsody)
+                  .map(([key]) => [key, expressionColors[key as keyof typeof expressionColors]])
+              ),
+              labels: Object.fromEntries(
+                Object.entries(lastProsody)
+                  .map(([key]) => [key, expressionLabels[key]])
+              )
+            }
+          } : {};
+
           await embeddingsService.storeMessageAndVector(
             fullResponse,
             userId,
             customSessionId || 'default-session',
-            'assistant'
+            'assistant',
+            prosodyMetadata
           );
         }
 
@@ -253,11 +292,19 @@ export async function POST(req: NextRequest) {
             begin: startTime,
             end: Date.now()
           },
-          models: {
+          models: lastProsody ? {
             prosody: {
-              scores: lastProsody
+              scores: lastProsody,
+              colors: Object.fromEntries(
+                Object.entries(lastProsody)
+                  .map(([key]) => [key, expressionColors[key as keyof typeof expressionColors]])
+              ),
+              labels: Object.fromEntries(
+                Object.entries(lastProsody)
+                  .map(([key]) => [key, expressionLabels[key]])
+              )
             }
-          }
+          } : {}
         };
         
         await streamingService.writeChunk(writer, endMessage);

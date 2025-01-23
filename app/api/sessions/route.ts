@@ -1,6 +1,32 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { expressionColors } from '@/services/hume/expressions/expressionColors'
+import { expressionLabels } from '@/services/hume/expressions/expressionLabels'
+
+// Helper to enrich prosody data
+function enrichProsodyData(message: any) {
+  if (message.metadata?.prosody?.scores) {
+    return {
+      ...message,
+      metadata: {
+        ...message.metadata,
+        prosody: {
+          scores: message.metadata.prosody.scores,
+          colors: Object.fromEntries(
+            Object.entries(message.metadata.prosody.scores)
+              .map(([key]) => [key, expressionColors[key as keyof typeof expressionColors]])
+          ),
+          labels: Object.fromEntries(
+            Object.entries(message.metadata.prosody.scores)
+              .map(([key]) => [key, expressionLabels[key]])
+          )
+        }
+      }
+    };
+  }
+  return message;
+}
 
 export async function GET() {
   const start = Date.now()
@@ -30,11 +56,18 @@ export async function GET() {
         }
       }
     })
+
+    // Enrich prosody data for each message
+    const enrichedSessions = sessions.map(session => ({
+      ...session,
+      messages: session.messages.map(enrichProsodyData)
+    }));
+
     console.log(`DB query took ${Date.now() - queryStart}ms`)
 
     // Sort sessions by their most recent message
     const sortStart = Date.now()
-    sessions.sort((a, b) => {
+    enrichedSessions.sort((a, b) => {
       const aLastMessage = a.messages[a.messages.length - 1]
       const bLastMessage = b.messages[b.messages.length - 1]
       
@@ -46,9 +79,9 @@ export async function GET() {
     console.log(`Sorting took ${Date.now() - sortStart}ms`)
 
     console.log(`Total time: ${Date.now() - start}ms`)
-    console.log(`Found ${sessions.length} sessions for user:`, userId)
+    console.log(`Found ${enrichedSessions.length} sessions for user:`, userId)
     
-    return NextResponse.json(sessions)
+    return NextResponse.json(enrichedSessions)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.error('Error fetching sessions:', errorMessage)
