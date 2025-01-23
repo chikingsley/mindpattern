@@ -1,5 +1,6 @@
 import { ToolCall, ToolCallResult } from './types';
 import { toolRegistry } from './registry';
+import { ContextTracker } from '@/lib/tracker';
 
 export class ToolService {
   private finalToolCalls: Record<number, ToolCall> = {};
@@ -14,6 +15,14 @@ export class ToolService {
     this.toolCallsProcessed = false;
   }
 
+  setContextTracker(tracker: ContextTracker) {
+    toolRegistry.setContextTracker(tracker);
+  }
+
+  setMessages(messages: any[]) {
+    toolRegistry.setMessages(messages);
+  }
+
   isProcessed(): boolean {
     return this.toolCallsProcessed;
   }
@@ -23,7 +32,13 @@ export class ToolService {
   }
 
   async handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]> {
-    return toolRegistry.handleToolCalls(toolCalls);
+    const results = await toolRegistry.handleToolCalls(toolCalls);
+    // Update messages after tool calls in case they were modified
+    const updatedMessages = toolRegistry.getMessages();
+    if (updatedMessages.length > 0) {
+      this.setMessages(updatedMessages);
+    }
+    return results;
   }
 
   processToolCallChunk(toolCall: any, chunkFinishReason?: string | null): boolean {

@@ -45,9 +45,10 @@ export async function POST(req: NextRequest) {
     
     // Initialize context tracker with the specified model
     const contextTracker = new ContextTracker(validatedModel);
+    toolService.setContextTracker(contextTracker);
 
     // Process messages and store with embeddings
-    const messages = [
+    let messages = [
       { role: 'system', content: BASE_PROMPT },
       ...await Promise.all(body.messages.filter((msg: any) => msg?.content?.trim()).map(async (msg: any) => {
         // Enrich prosody data with colors and labels
@@ -95,6 +96,8 @@ export async function POST(req: NextRequest) {
       }))
     ];
 
+    toolService.setMessages(messages);
+
     // Get relevant context for the latest user message
     const lastUserMessage = body.messages[body.messages.length - 1];
     if (lastUserMessage.role === 'user') {
@@ -119,9 +122,7 @@ export async function POST(req: NextRequest) {
     // Start OpenAI stream with configured model
     const openaiStream = await openai.chat.completions.create({
       model: getModelName(config.USE_OPENROUTER),
-      messages: contextTracker.shouldTruncate(messages) ? 
-        contextTracker.truncateMessages(messages) : 
-        messages,
+      messages: messages,
       tools: toolService.getToolDefinitions(),
       tool_choice: 'auto',
       stream: true,
