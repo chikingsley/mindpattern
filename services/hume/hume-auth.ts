@@ -1,4 +1,4 @@
-import { HumeConfig, HumeError } from '../types/hume'
+import { HumeConfig, HumeError } from './hume-types'
 
 function getHumeApiKey() {
   const apiKey = process.env.HUME_API_KEY

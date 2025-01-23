@@ -6,7 +6,7 @@ import { Nav } from "@/components/Nav";
 import { cn } from "@/lib/utils";
 import { ChatProvider } from "@/app/context/ChatContext";
 import { VoiceProvider } from "@humeai/voice-react";
-import { getHumeAccessToken } from "@/utils/getHumeAccessToken";
+import { getHumeAccessToken } from "@/services/hume/getHumeAccessToken";
 import { ClerkProvider } from '@clerk/nextjs';
 import { currentUser } from '@clerk/nextjs/server';
 import { AppSidebar } from "@/components/app-sidebar";

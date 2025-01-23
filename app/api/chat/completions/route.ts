@@ -41,9 +41,10 @@ import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt';
 import { ContextTracker } from '@/lib/tracker';
-import { ToolCall, ToolCallResult, tools, handleWeather, handleUserProfile } from '@/types/tools';
+import { ToolCall, ToolCallResult } from '@/services/tools/types';
+import { toolRegistry } from '@/services/tools/registry';
 import { config, getBaseUrl, getApiKey, getModelName } from '@/lib/config';
-import { StreamingService } from '@/services/responses/streaming';
+import { StreamingService } from '@/services/streaming/stream-service';
 
 const openai = new OpenAI({
   apiKey: getApiKey(config.USE_OPENROUTER),
@@ -53,36 +54,9 @@ const openai = new OpenAI({
 const validatedModel = getModelName(config.USE_OPENROUTER);
 const streamingService = new StreamingService();
 
-// Update the handleToolCalls function to be more robust
+// Update the handleToolCalls function to use toolRegistry
 async function handleToolCalls(toolCalls: ToolCall[]): Promise<ToolCallResult[]> {
-  const results: ToolCallResult[] = [];
-  
-  for (const toolCall of toolCalls) {
-    try {
-      let result: ToolCallResult;
-      
-      switch (toolCall.function.name) {
-        case "get_current_weather":
-          result = await handleWeather(toolCall);
-          console.log('Successfully processed weather request');
-          break;
-          
-        case "update_user_profile":
-          result = await handleUserProfile(toolCall);
-          console.log('Successfully updated user profile');
-          break;
-          
-        default:
-          console.warn('Unknown tool called:', toolCall.function.name);
-          continue;
-      }
-      
-      results.push(result);
-    } catch (error) {
-      console.error(`Error processing ${toolCall.function.name}:`, error);
-    }
-  }
-  return results;
+  return toolRegistry.handleToolCalls(toolCalls);
 }
 
 export async function OPTIONS(req: NextRequest) {
@@ -138,7 +112,7 @@ export async function POST(req: NextRequest) {
       messages: contextTracker.shouldTruncate(messages) ? 
         contextTracker.truncateMessages(messages) : 
         messages,
-      tools: tools,
+      tools: toolRegistry.getToolDefinitions(),
       tool_choice: 'auto',
       stream: true,
       ...(config.USE_OPENROUTER && {

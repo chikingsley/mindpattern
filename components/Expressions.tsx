@@ -1,6 +1,7 @@
 "use client";
-import { expressionColors, isExpressionColor } from "@/utils/expressionColors";
-import { expressionLabels } from "@/utils/expressionLabels";
+
+import { expressionColors, isExpressionColor } from "@/services/hume/expressions/expressionColors";
+import { expressionLabels } from "@/services/hume/expressions/expressionLabels";
 import { motion } from "framer-motion";
 import { CSSProperties } from "react";
 import * as R from "remeda";

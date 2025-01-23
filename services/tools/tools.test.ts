@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { handleWeather, handleUserProfile, ToolCall } from './tools';
+import { handleWeather, handleUserProfile, ToolCall } from './types';
 import fs from 'fs/promises';
 import path from 'path';
 

@@ -1,4 +1,4 @@
-// types/database.ts
+// prisma/prisma-types.ts
 
 export interface User {
   id: string
