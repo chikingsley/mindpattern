@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { useEmbeddingsService } from './EmbeddingsService';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../types/supabase';
+import type { Database } from '../../prisma/supabase';
 
 // Initialize Supabase client for tests
 const supabase = createClient<Database>(

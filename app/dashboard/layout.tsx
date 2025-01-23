@@ -14,7 +14,7 @@ import { VoiceSessionManager } from "@/components/VoiceSessionManager";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/prisma/prisma";
 
 export const runtime = 'nodejs'
 
@@ -22,6 +22,28 @@ export const metadata: Metadata = {
   title: "MindPattern Dashboard",
   description: "Your AI emotional support companion dashboard",
 };
+
+async function getPrismaUserWithRetry(userId: string, retries = 3, delay = 1000): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        configId: true,
+        systemPrompt: true
+      }
+    });
+    
+    if (user) return user;
+    
+    // If not found and we have retries left, wait before trying again
+    if (i < retries - 1) {
+      console.log(`User not found, retrying in ${delay}ms... (${i + 1}/${retries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  return null;
+}
 
 export default async function RootLayout({
   children,
@@ -39,19 +61,37 @@ export default async function RootLayout({
   if (!user) {
     throw new Error("No user found. Please try logging out and back in.");
   }
-  // Add this temporary console.log right before your prisma query
-  console.log('Runtime environment:', process.version); // This only works in Node.js
-  // Get associated Prisma user data
-  const prismaUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: {
-      configId: true,
-      systemPrompt: true
-    }
-  });
+
+  // Get associated Prisma user data with retries
+  const prismaUser = await getPrismaUserWithRetry(user.id);
 
   if (!prismaUser) {
-    throw new Error("No Prisma user found. Database sync issue.");
+    // If still no user after retries, try to create one
+    console.log("No Prisma user found after retries, attempting to create...");
+    try {
+      const response = await fetch("/api/users", {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to create user");
+      }
+      // Try one last time to get the user
+      const newPrismaUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          configId: true,
+          systemPrompt: true
+        }
+      });
+      if (!newPrismaUser) {
+        throw new Error("Failed to create and retrieve user");
+      }
+      console.log("Successfully created new user");
+      return newPrismaUser;
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw new Error("No Prisma user found and failed to create one. Please try again.");
+    }
   }
 
   // Destructure with default values for type safety

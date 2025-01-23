@@ -4,7 +4,7 @@ config(); // Load environment variables from .env file
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { embeddingsService } from './EmbeddingsService';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../types/supabase';
+import type { Database } from '../../prisma/supabase';
 
 // Validate required environment variables
 if (!process.env.JINA_API_KEY) {

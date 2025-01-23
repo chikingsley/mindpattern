@@ -3,7 +3,7 @@ export const runtime = 'edge'
 import { generateEmbeddings } from './embeddings';
 import { rerank } from './reranker';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../types/supabase';
+import type { Database } from '../../prisma/supabase';
 
 type Message = Database['public']['Tables']['messages']['Row'];
 type MessageWithSimilarity = Message & { similarity: number };

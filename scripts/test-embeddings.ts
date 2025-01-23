@@ -1,6 +1,6 @@
 import { useEmbeddingsService } from '../services/embeddings/EmbeddingsService';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../types/supabase';
+import type { Database } from '../prisma/supabase';
 
 interface TestResult {
   scale: string;

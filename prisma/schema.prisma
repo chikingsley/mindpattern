@@ -11,15 +11,15 @@ datasource db {
 }
 
 model User {
-  id           String    @id
-  configId     String?   @map("config_id") @db.Uuid
-  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  email        String?   @unique
-  systemPrompt String?   @map("system_prompt")
-  firstName    String?   @map("first_name")
-  lastName     String?   @map("last_name")
-  sessions     Session[]
+  id           String        @id
+  configId     String?       @map("config_id") @db.Uuid
+  createdAt    DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  email        String?       @unique
+  systemPrompt String?       @map("system_prompt")
+  firstName    String?       @map("first_name")
+  lastName     String?       @map("last_name")
   memoryChains MemoryChain[]
+  sessions     Session[]
 
   @@map("users")
 }
@@ -63,17 +63,17 @@ model MessageVector {
 }
 
 model MemoryChain {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String    @map("user_id")
-  type        String    @db.VarChar(20)  // emotional, behavioral, relational
-  pattern     Json      // Pattern details
-  confidence  Float     @default(0.0)
-  verified    Boolean   @default(false)
-  occurrences Json[]    // Array of supporting evidence
-  metadata    Json?     @default("{}")    // Additional pattern metadata
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String             @map("user_id")
+  type        String             @db.VarChar(20)
+  pattern     Json
+  confidence  Float              @default(0.0)
+  verified    Boolean            @default(false)
+  occurrences Json[]
+  metadata    Json?              @default("{}")
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   detections  PatternDetection[]
 
   @@index([userId, type])
@@ -82,13 +82,13 @@ model MemoryChain {
 }
 
 model PatternDetection {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  chainId     String    @map("chain_id") @db.Uuid
-  messageIds  String[]  @db.Uuid         // Related messages
-  score       Float     @default(0.0)    // Pattern match confidence
-  context     Json      // Detection context (emotions, topics, etc)
-  timestamp   DateTime  @default(now()) @db.Timestamptz(6)
-  chain       MemoryChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chainId    String      @map("chain_id") @db.Uuid
+  messageIds String[]    @db.Uuid
+  score      Float       @default(0.0)
+  context    Json
+  timestamp  DateTime    @default(now()) @db.Timestamptz(6)
+  chain      MemoryChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
 
   @@index([chainId, timestamp])
   @@map("pattern_detections")

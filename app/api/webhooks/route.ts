@@ -2,7 +2,7 @@ import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { PrismaClient } from '@prisma/client'
-import { createHumeConfig, deleteHumeConfig } from '@/utils/hume'
+import { createHumeConfig, deleteHumeConfig } from '@/services/hume/hume-auth'
 import { createClerkClient } from '@clerk/backend'
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt'
 

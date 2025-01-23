@@ -1,5 +1,5 @@
 import { embeddingsService } from './EmbeddingsService';
-import type { Database } from '../../types/supabase';
+import type { Database } from '../../prisma/supabase';
 
 type Message = Database['public']['Tables']['messages']['Row'];
 type MessageRole = 'user' | 'assistant';
