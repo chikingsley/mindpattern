@@ -1,34 +1,7 @@
 "use client";
-/**
- * Chat Context Flow:
- * 
- * 1. Data Storage Strategy:
- *    - Primary: Prisma Database (PostgreSQL)
- *    - Fallback: Browser's localStorage
- * 
- * 2. Session Loading Flow:
- *    a. When component mounts, check if user is authenticated
- *    b. If authenticated:
- *       - Try to load sessions from Prisma
- *       - If Prisma fails, fall back to localStorage
- *    c. If not authenticated:
- *       - Wait for auth state to load
- * 
- * 3. Session Management:
- *    - New sessions are created locally first
- *    - Then synced to backend asynchronously
- *    - Active session tracking with timeout
- *    - Messages are added to local state immediately
- *    - Then synced to backend asynchronously
- * 
- * 4. State Updates:
- *    - Local state updates are immediate for UI responsiveness
- *    - Backend sync happens in background
- *    - Error states are tracked for fallback behavior
- */
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import type { ChatMessage } from '@/types/database'
+import type { ChatMessage } from '@/prisma/prisma-types'
 import { useSession } from '@clerk/nextjs'
 import { SESSION_CREATED_EVENT, type SessionCreatedDetail } from '@/components/VoiceSessionManager'
 

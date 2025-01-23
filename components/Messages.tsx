@@ -1,11 +1,12 @@
 "use client";
+
 import { cn } from "../lib/utils";
 import { useVoice } from "@humeai/voice-react";
 import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";
 import { forwardRef, useEffect, useRef } from "react";
 import { useChatContext } from "../app/context/ChatContext";
-import type { ChatMessage } from "@/types/database";
+import type { ChatMessage } from "@/prisma/prisma-types";
 
 const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
   const { messages: voiceMessages } = useVoice();
@@ -31,6 +32,7 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
       const lastMessage = voiceMessages[voiceMessages.length - 1];
       if (
         (lastMessage.type === "user_message" || lastMessage.type === "assistant_message") &&
+        lastMessage.message?.content &&
         JSON.stringify(lastMessage) !== lastMessageRef.current
       ) {
         console.debug('Adding message to active session:', {
@@ -40,12 +42,21 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
         });
 
         lastMessageRef.current = JSON.stringify(lastMessage);
+        
+        // Map the role to allowed values
+        const role = lastMessage.message.role === 'system' ? 'assistant' : 
+                    (lastMessage.message.role as 'user' | 'assistant');
+
         addMessageToSession(activeSessionId, {
-          role: lastMessage.message.role,
+          role,
           content: lastMessage.message.content,
           timestamp: new Date().toISOString(),
           metadata: {
-            prosody: lastMessage.models?.prosody?.scores
+            prosody: lastMessage.models?.prosody?.scores ? 
+              Object.fromEntries(
+                Object.entries(lastMessage.models.prosody.scores)
+                  .map(([key, value]) => [key, Number(value)])
+              ) : undefined
           }
         });
 
@@ -125,7 +136,7 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
 
   // Smooth scroll for new messages in active session
   useEffect(() => {
-    if (scrollRef.current && currentMessages.length > 0 && isActiveSession(activeSessionId) && shouldScroll()) {
+    if (scrollRef.current && currentMessages.length > 0 && activeSessionId && isActiveSession(activeSessionId) && shouldScroll()) {
       const microphoneHeight = 80;
       scrollRef.current.scrollTo({
         top: scrollRef.current.scrollHeight + microphoneHeight,
@@ -145,7 +156,7 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
       >
         <AnimatePresence initial={false}>
           {currentMessages.map((msg, index) => {
-            const shouldAnimate = isActiveSession(activeSessionId) && shouldScroll();
+            const shouldAnimate = activeSessionId && isActiveSession(activeSessionId) && shouldScroll();
             return (
               <motion.div
                 key={`${activeSessionId}-${msg.role}-${index}-${msg.timestamp}`}
