@@ -5,6 +5,7 @@ import { ContextTracker } from '@/lib/tracker';
 import { ToolService } from '@/services/tools/tool-service';
 import { config, getBaseUrl, getApiKey, getModelName } from '@/lib/config';
 import { StreamingService } from '@/services/streaming/stream-service';
+import { embeddingsService } from '@/services/embeddings/EmbeddingsService';
 
 const openai = new OpenAI({
   apiKey: getApiKey(config.USE_OPENROUTER),
@@ -37,25 +38,67 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const customSessionId = new URL(req.url).searchParams.get('custom_session_id');
+    const userId = req.headers.get('x-user-id') || 'default-user';
     const prosodyData: { [key: string]: any } = {};
     
     // Initialize context tracker with the specified model
     const contextTracker = new ContextTracker(validatedModel);
 
-    // Handle Hume message format
+    // Process messages and store with embeddings
     const messages = [
       { role: 'system', content: BASE_PROMPT },
-      ...body.messages.map((msg: any) => {
-      // Store prosody data for this message if available
-      if (msg.models?.prosody?.scores) {
-        prosodyData[msg.content] = msg.models.prosody.scores;
+      ...await Promise.all(body.messages.filter((msg: any) => msg?.content?.trim()).map(async (msg: any) => {
+        try {
+          // Store prosody data for this message if available
+          if (msg.models?.prosody?.scores) {
+            prosodyData[msg.content] = msg.models.prosody.scores;
+          }
+
+          // Store message with embeddings
+          await embeddingsService.storeMessageAndVector(
+            msg.content,
+            userId,
+            customSessionId || 'default-session',
+            msg.role,
+            { prosody: msg.models?.prosody?.scores }
+          );
+
+          return {
+            role: msg.role,
+            content: msg.content,
+            ...(msg.models?.prosody?.scores && { prosody: msg.models.prosody.scores })
+          };
+        } catch (error) {
+          console.error('Error processing message:', error);
+          // Return the message without storing it rather than failing the whole request
+          return {
+            role: msg.role,
+            content: msg.content
+          };
+        }
+      }))
+    ];
+
+    // Get relevant context for the latest user message
+    const lastUserMessage = body.messages[body.messages.length - 1];
+    if (lastUserMessage.role === 'user') {
+      const relevantContext = await embeddingsService.getRelevantContext(
+        lastUserMessage.content,
+        userId,
+        customSessionId || 'default-session',
+        5,
+        true // Use reranker for better semantic matching
+      );
+
+      // Add context to system message if relevant results found
+      if (relevantContext.length > 0) {
+        const contextStr = relevantContext
+          .map(r => `Previous relevant message (similarity: ${(r.finalScore || r.similarity).toFixed(2)}): "${r.message.content}"`)
+          .join('\n');
+        
+        messages[0].content += `\n\nRelevant context from previous messages:\n${contextStr}`;
       }
-      // Return only role and content as required by OpenAI
-      return {
-        role: msg.role,
-        content: msg.content
-      };
-    })];
+    }
 
     // Start OpenAI stream with configured model
     const openaiStream = await openai.chat.completions.create({
@@ -193,6 +236,16 @@ export async function POST(req: NextRequest) {
           }
         }
         
+        // Store the complete assistant response with embeddings
+        if (fullResponse) {
+          await embeddingsService.storeMessageAndVector(
+            fullResponse,
+            userId,
+            customSessionId || 'default-session',
+            'assistant'
+          );
+        }
+
         // Send final message
         const endMessage = {
           type: 'assistant_end',

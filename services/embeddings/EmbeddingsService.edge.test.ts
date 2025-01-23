@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 config(); // Load environment variables from .env file
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { storeMessage, getRelevantContext } from './EmbeddingsService';
+import { embeddingsService } from './EmbeddingsService';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/supabase';
 
@@ -63,7 +63,7 @@ describe('EmbeddingsService Edge', () => {
   describe('Edge Storage', () => {
     it('should store message with vector in edge environment', async () => {
       const content = 'Test message for edge vector storage';
-      const result = await storeMessage(
+      const result = await embeddingsService.storeMessageAndVector(
         content,
         testUserId,
         testSessionId,
@@ -81,7 +81,6 @@ describe('EmbeddingsService Edge', () => {
 
       expect(vector).toBeDefined();
       expect(vector!.embedding).toBeDefined();
-      // Vector length check removed as it depends on the model's output
     });
   });
 
@@ -94,10 +93,10 @@ describe('EmbeddingsService Edge', () => {
       ];
 
       for (const content of messages) {
-        await storeMessage(content, testUserId, testSessionId, 'user');
+        await embeddingsService.storeMessageAndVector(content, testUserId, testSessionId, 'user');
       }
 
-      const results = await getRelevantContext(
+      const results = await embeddingsService.getRelevantContext(
         'Tell me about cats',
         testUserId,
         testSessionId,
@@ -107,7 +106,7 @@ describe('EmbeddingsService Edge', () => {
 
       expect(results).toHaveLength(2);
       expect(results[0].similarity).toBeGreaterThan(0.3);
-      expect(results.some(r => r.message.content.includes('cats'))).toBe(true);
+      expect(results.some((r: { message: { content: string } }) => r.message.content.includes('cats'))).toBe(true);
     });
 
     it('should handle reranking in edge environment', async () => {
@@ -118,10 +117,10 @@ describe('EmbeddingsService Edge', () => {
       ];
 
       for (const content of messages) {
-        await storeMessage(content, testUserId, testSessionId, 'user');
+        await embeddingsService.storeMessageAndVector(content, testUserId, testSessionId, 'user');
       }
 
-      const results = await getRelevantContext(
+      const results = await embeddingsService.getRelevantContext(
         'Tell me about having cats as pets',
         testUserId,
         testSessionId,
@@ -150,7 +149,7 @@ describe('EmbeddingsService Edge', () => {
         // Set an invalid API key to force a failure
         process.env.JINA_API_KEY = 'invalid-key';
         
-        const results = await getRelevantContext('Test query', testUserId, testSessionId, 2, true);
+        const results = await embeddingsService.getRelevantContext('Test query', testUserId, testSessionId, 2, true);
         
         expect(results).toBeDefined();
         expect(results[0].similarity).toBeGreaterThan(0.3);

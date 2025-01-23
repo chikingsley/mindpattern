@@ -1,18 +1,12 @@
 export const runtime = 'edge'
 
-import { generateEmbedding, generateEmbeddings } from './embeddings';
+import { generateEmbeddings } from './embeddings';
 import { rerank } from './reranker';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/supabase';
 
 type Message = Database['public']['Tables']['messages']['Row'];
 type MessageWithSimilarity = Message & { similarity: number };
-
-type JinaTask = 'retrieval.passage';
-
-interface EmbeddingOptions {
-  task?: JinaTask;
-}
 
 interface RankedResult {
   message: Message;
@@ -55,117 +49,140 @@ export class EmbeddingsService {
     return this.instance;
   }
 
-  async getEmbedding(input: string, options?: EmbeddingOptions): Promise<number[]> {
-    const result = await generateEmbedding(input, options);
-    if (!result) throw new Error('Failed to generate embedding');
-    return result;
+  /**
+   * Generate embeddings for one or more inputs
+   * Centralizes embedding generation with consistent configuration
+   */
+  async generateEmbeddings(inputs: string[]): Promise<number[][]> {
+    return generateEmbeddings(inputs, { task: 'retrieval.passage' });
   }
 
-  async getEmbeddings(inputs: string[], options?: EmbeddingOptions): Promise<number[][]> {
-    return generateEmbeddings(inputs, options);
+  /**
+   * Generate embedding for a single input
+   */
+  async generateEmbedding(input: string): Promise<number[]> {
+    try {
+      if (!input || !input.trim()) {
+        throw new Error('Empty or invalid input for embedding generation');
+      }
+      const embeddings = await this.generateEmbeddings([input]);
+      if (!embeddings || !embeddings[0]) {
+        throw new Error('Failed to generate embedding');
+      }
+      return embeddings[0];
+    } catch (error) {
+      console.error('Error generating embedding:', error);
+      throw error;
+    }
   }
-}
 
-export const embeddingsService = EmbeddingsService.getInstance();
+  /**
+   * Store a message with its embedding vector atomically.
+   * This ensures every message has its corresponding vector and maintains referential integrity.
+   */
+  async storeMessageAndVector(
+    content: string,
+    userId: string,
+    sessionId: string,
+    role: 'user' | 'assistant',
+    metadata: Record<string, any> = {}
+  ): Promise<Message> {
+    const embedding = await this.generateEmbedding(content);
+    
+    if (!embedding || !Array.isArray(embedding) || embedding.length !== 1024) {
+      console.error('Invalid embedding generated:', { embedding });
+      throw new Error('Failed to generate valid embedding');
+    }
 
-export async function storeMessage(
-  content: string,
-  userId: string,
-  sessionId: string,
-  role: 'user' | 'assistant',
-  metadata: Record<string, any> = {}
-): Promise<Message> {
-  const embeddings = await generateEmbeddings([content]);
-  
-  const { data: message, error: messageError } = await supabase
-    .from('messages')
-    .insert({
-      content,
-      role,
-      metadata,
-      session_id: sessionId
-    })
-    .select()
-    .single();
-
-  if (messageError) throw messageError;
-
-  const { error: vectorError } = await supabase
-    .from('message_vectors')
-    .insert({
-      message_id: message.id,
-      embedding: embeddings[0]
+    // Validate all values are numbers and not null
+    if (embedding.some(val => typeof val !== 'number' || val === null)) {
+      console.error('Invalid values in embedding:', { embedding });
+      throw new Error('Embedding contains invalid values');
+    }
+    
+    // Use a transaction to ensure atomic operations
+    const { data, error } = await supabase.rpc('store_message_with_vector', {
+      p_content: content,
+      p_role: role,
+      p_metadata: metadata,
+      p_session_id: sessionId,
+      p_embedding: embedding
     });
 
-  if (vectorError) throw vectorError;
-  return message;
-}
+    if (error) {
+      console.error('Error storing message with vector:', error);
+      throw error;
+    }
 
-export async function getRelevantContext(
-  content: string,
-  userId: string,
-  sessionId: string,
-  limit = 5,
-  useReranker = false
-): Promise<RankedResult[]> {
-  const embeddings = await generateEmbeddings([content]);
-  const candidateLimit = useReranker ? SCORING_CONFIG.maxCandidates : limit;
-  
-  const { data: messages, error } = await supabase
-    .rpc('match_messages', {
-      query_embedding: embeddings[0],
-      similarity_threshold: SCORING_CONFIG.similarityThreshold,
-      match_count: candidateLimit,
-      session_uuid: sessionId
-    });
-
-  if (error) throw error;
-
-  const candidates = messages.map((msg: MessageWithSimilarity) => ({
-    message: msg,
-    similarity: msg.similarity
-  }));
-
-  if (!candidates.length) return [];
-
-  const bestSimilarity = Math.max(...candidates.map((c: RankedResult) => c.similarity));
-  const shouldRerank = useReranker && bestSimilarity >= SCORING_CONFIG.minSimilarityForRerank;
-
-  if (!shouldRerank) {
-    return candidates
-      .sort((a: RankedResult, b: RankedResult) => b.similarity - a.similarity)
-      .slice(0, limit);
+    return data;
   }
 
-  try {
-    const { scores } = await rerank(
-      content,
-      candidates.map((c: RankedResult) => c.message.content),
-      { limit }
-    );
+  /**
+   * Get relevant context based on content similarity
+   */
+  async getRelevantContext(
+    content: string,
+    userId: string,
+    sessionId: string,
+    limit = 5,
+    useReranker = false
+  ): Promise<RankedResult[]> {
+    const embedding = await this.generateEmbedding(content);
+    const candidateLimit = useReranker ? SCORING_CONFIG.maxCandidates : limit;
+    
+    const { data: messages, error } = await supabase
+      .rpc('match_messages', {
+        query_embedding: embedding,
+        similarity_threshold: SCORING_CONFIG.similarityThreshold,
+        match_count: candidateLimit,
+        session_uuid: sessionId
+      });
 
-    return candidates
-      .map((result: RankedResult, i: number) => ({
-        ...result,
-        rerankedScore: scores[i],
-        finalScore: SCORING_CONFIG.vectorWeight * result.similarity + 
-                   SCORING_CONFIG.rerankerWeight * scores[i]
-      }))
-      .sort((a: RankedResult, b: RankedResult) => (b.finalScore! - a.finalScore!))
-      .slice(0, limit);
-  } catch {
-    return candidates
-      .sort((a: RankedResult, b: RankedResult) => b.similarity - a.similarity)
-      .slice(0, limit);
+    if (error) throw error;
+
+    const candidates = messages.map((msg: MessageWithSimilarity) => ({
+      message: msg,
+      similarity: msg.similarity
+    }));
+
+    if (!candidates.length) return [];
+
+    const bestSimilarity = Math.max(...candidates.map((c: RankedResult) => c.similarity));
+    const shouldRerank = useReranker && bestSimilarity >= SCORING_CONFIG.minSimilarityForRerank;
+
+    if (!shouldRerank) {
+      return candidates
+        .sort((a: RankedResult, b: RankedResult) => b.similarity - a.similarity)
+        .slice(0, limit);
+    }
+
+    try {
+      const { scores } = await rerank(
+        content,
+        candidates.map((c: RankedResult) => c.message.content),
+        { limit }
+      );
+
+      return candidates
+        .map((result: RankedResult, i: number) => ({
+          ...result,
+          rerankedScore: scores[i],
+          finalScore: SCORING_CONFIG.vectorWeight * result.similarity + 
+                     SCORING_CONFIG.rerankerWeight * scores[i]
+        }))
+        .sort((a: RankedResult, b: RankedResult) => (b.finalScore! - a.finalScore!))
+        .slice(0, limit);
+    } catch {
+      return candidates
+        .sort((a: RankedResult, b: RankedResult) => b.similarity - a.similarity)
+        .slice(0, limit);
+    }
   }
-}
 
-export function useEmbeddingsService() {
-  async function generateMessageEmbeddings(input: string[]): Promise<number[][]> {
-    return await embeddingsService.getEmbeddings(input, { task: 'retrieval.passage' });
-  }
-
-  async function runLatencyTest(
+  /**
+   * Run latency tests for different message lengths
+   */
+  async runLatencyTest(
     userId: string,
     sessionId: string
   ): Promise<{
@@ -186,12 +203,12 @@ export function useEmbeddingsService() {
       const start = performance.now();
       
       // Test storage
-      await storeMessage(msg, userId, sessionId, 'user');
+      await this.storeMessageAndVector(msg, userId, sessionId, 'user');
       const storeLatency = performance.now() - start;
       
       // Test retrieval
       const retrieveStart = performance.now();
-      await getRelevantContext(msg, userId, sessionId);
+      await this.getRelevantContext(msg, userId, sessionId);
       const retrieveLatency = performance.now() - retrieveStart;
       
       results.push({
@@ -204,11 +221,16 @@ export function useEmbeddingsService() {
     
     return results;
   }
+}
 
+export const embeddingsService = EmbeddingsService.getInstance();
+
+// Hook for React components
+export function useEmbeddingsService() {
   return {
-    generateMessageEmbeddings,
-    storeMessage,
-    getRelevantContext,
-    runLatencyTest
+    storeMessageAndVector: embeddingsService.storeMessageAndVector.bind(embeddingsService),
+    getRelevantContext: embeddingsService.getRelevantContext.bind(embeddingsService),
+    runLatencyTest: embeddingsService.runLatencyTest.bind(embeddingsService),
+    generateEmbeddings: embeddingsService.generateEmbeddings.bind(embeddingsService)
   };
 }
