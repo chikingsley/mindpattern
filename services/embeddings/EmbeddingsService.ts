@@ -1,3 +1,5 @@
+export const runtime = 'edge'
+
 import { generateEmbedding, generateEmbeddings } from './embeddings';
 import { rerank } from './reranker';
 import { createClient } from '@supabase/supabase-js';
@@ -28,10 +30,17 @@ const SCORING_CONFIG = {
   minSimilarityForRerank: 0.4  // Only rerank if vector similarity is good enough
 };
 
-// Initialize Supabase client
+// Initialize edge-compatible Supabase client
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: { persistSession: false },
+    global: { 
+      headers: { 'x-my-custom-header': 'mindpattern-edge' },
+      fetch: fetch
+    }
+  }
 );
 
 export class EmbeddingsService {
@@ -59,137 +68,101 @@ export class EmbeddingsService {
 
 export const embeddingsService = EmbeddingsService.getInstance();
 
+export async function storeMessage(
+  content: string,
+  userId: string,
+  sessionId: string,
+  role: 'user' | 'assistant',
+  metadata: Record<string, any> = {}
+): Promise<Message> {
+  const embeddings = await generateEmbeddings([content]);
+  
+  const { data: message, error: messageError } = await supabase
+    .from('messages')
+    .insert({
+      content,
+      role,
+      metadata,
+      session_id: sessionId
+    })
+    .select()
+    .single();
+
+  if (messageError) throw messageError;
+
+  const { error: vectorError } = await supabase
+    .from('message_vectors')
+    .insert({
+      message_id: message.id,
+      embedding: embeddings[0]
+    });
+
+  if (vectorError) throw vectorError;
+  return message;
+}
+
+export async function getRelevantContext(
+  content: string,
+  userId: string,
+  sessionId: string,
+  limit = 5,
+  useReranker = false
+): Promise<RankedResult[]> {
+  const embeddings = await generateEmbeddings([content]);
+  const candidateLimit = useReranker ? SCORING_CONFIG.maxCandidates : limit;
+  
+  const { data: messages, error } = await supabase
+    .rpc('match_messages', {
+      query_embedding: embeddings[0],
+      similarity_threshold: SCORING_CONFIG.similarityThreshold,
+      match_count: candidateLimit,
+      session_uuid: sessionId
+    });
+
+  if (error) throw error;
+
+  const candidates = messages.map((msg: MessageWithSimilarity) => ({
+    message: msg,
+    similarity: msg.similarity
+  }));
+
+  if (!candidates.length) return [];
+
+  const bestSimilarity = Math.max(...candidates.map((c: RankedResult) => c.similarity));
+  const shouldRerank = useReranker && bestSimilarity >= SCORING_CONFIG.minSimilarityForRerank;
+
+  if (!shouldRerank) {
+    return candidates
+      .sort((a: RankedResult, b: RankedResult) => b.similarity - a.similarity)
+      .slice(0, limit);
+  }
+
+  try {
+    const { scores } = await rerank(
+      content,
+      candidates.map((c: RankedResult) => c.message.content),
+      { limit }
+    );
+
+    return candidates
+      .map((result: RankedResult, i: number) => ({
+        ...result,
+        rerankedScore: scores[i],
+        finalScore: SCORING_CONFIG.vectorWeight * result.similarity + 
+                   SCORING_CONFIG.rerankerWeight * scores[i]
+      }))
+      .sort((a: RankedResult, b: RankedResult) => (b.finalScore! - a.finalScore!))
+      .slice(0, limit);
+  } catch {
+    return candidates
+      .sort((a: RankedResult, b: RankedResult) => b.similarity - a.similarity)
+      .slice(0, limit);
+  }
+}
+
 export function useEmbeddingsService() {
   async function generateMessageEmbeddings(input: string[]): Promise<number[][]> {
     return await embeddingsService.getEmbeddings(input, { task: 'retrieval.passage' });
-  }
-
-  async function storeMessage(
-    content: string,
-    userId: string,
-    sessionId: string,
-    role: 'user' | 'assistant',
-    metadata: Record<string, any> = {}
-  ) {
-    try {
-      // Generate embedding
-      const embeddings = await generateMessageEmbeddings([content]);
-      
-      // Store message
-      const { data: message, error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          content,
-          role,
-          metadata,
-          session_id: sessionId
-        })
-        .select()
-        .single();
-
-      if (messageError) throw messageError;
-
-      // Store vector
-      const { error: vectorError } = await supabase
-        .from('message_vectors')
-        .insert({
-          message_id: message.id,
-          embedding: embeddings[0]
-        });
-
-      if (vectorError) throw vectorError;
-
-      return message;
-    } catch (error) {
-      console.error('Error storing message:', error);
-      throw error;
-    }
-  }
-
-  async function getRelevantContext(
-    content: string,
-    userId: string,
-    sessionId: string,
-    limit = 5,
-    useReranker = false
-  ): Promise<RankedResult[]> {
-    try {
-      // Generate embedding for search
-      const embeddings = await generateMessageEmbeddings([content]);
-      
-      // Get more candidates if using reranker
-      const candidateLimit = useReranker ? SCORING_CONFIG.maxCandidates : limit;
-      
-      // Use direct vector operations with Supabase's pgvector
-      const { data: messages, error } = await supabase
-        .rpc('match_messages', {
-          query_embedding: embeddings[0],
-          similarity_threshold: SCORING_CONFIG.similarityThreshold,
-          match_count: candidateLimit,
-          session_uuid: sessionId
-        });
-
-      if (error) throw error;
-
-      // Map initial results
-      const candidates = messages.map((msg: MessageWithSimilarity) => ({
-        message: msg,
-        similarity: msg.similarity
-      }));
-
-      // Only proceed with reranking if we have good vector matches
-      const bestSimilarity = Math.max(...candidates.map((c: RankedResult) => c.similarity));
-      const shouldRerank = useReranker && bestSimilarity >= SCORING_CONFIG.minSimilarityForRerank;
-
-      if (!shouldRerank) {
-        return candidates
-          .sort((a: RankedResult, b: RankedResult) => b.similarity - a.similarity)
-          .slice(0, limit);
-      }
-
-      // Rerank results
-      const rerankedResults = await rerankResults(content, candidates, limit);
-      
-      // Combine scores using optimal weights from testing
-      const finalResults = rerankedResults
-        .map(result => ({
-          ...result,
-          finalScore: result.rerankedScore 
-            ? (SCORING_CONFIG.vectorWeight * result.similarity + 
-               SCORING_CONFIG.rerankerWeight * result.rerankedScore)
-            : result.similarity
-        }))
-        .sort((a, b) => (b.finalScore! - a.finalScore!))
-        .slice(0, limit);
-
-      return finalResults;
-    } catch (error) {
-      console.error('Error getting relevant context:', error);
-      throw error;
-    }
-  }
-
-  async function rerankResults(
-    query: string,
-    candidates: RankedResult[],
-    limit: number
-  ): Promise<RankedResult[]> {
-    try {
-      const { scores } = await rerank(
-        query,
-        candidates.map(c => c.message.content),
-        { limit }
-      );
-      
-      // Add reranked scores to results
-      return candidates.map((result, i) => ({
-        ...result,
-        rerankedScore: scores[i]
-      }));
-    } catch (error) {
-      console.error('Error reranking results:', error);
-      return candidates;  // Fall back to original ranking
-    }
   }
 
   async function runLatencyTest(
@@ -236,7 +209,6 @@ export function useEmbeddingsService() {
     generateMessageEmbeddings,
     storeMessage,
     getRelevantContext,
-    runLatencyTest,
-    rerankResults
+    runLatencyTest
   };
 }

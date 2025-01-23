@@ -2,38 +2,148 @@ import { useEmbeddingsService } from '../services/embeddings/EmbeddingsService';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
 
-interface ScoringApproach {
-  name: string;
-  description: string;
-  combine: (similarity: number, rerankedScore: number) => number;
+interface TestResult {
+  scale: string;
+  queryType: string;
+  useReranker: boolean;
+  messageCount: number;
+  storageTime: number;
+  queryTime: number;
+  avgStorageTimePerMsg: number;
+  results: any[];
+  batchSize: number;
+  parallelProcessing: boolean;
+  networkTime: number;
+  processingTime: number;
+  accuracyScore?: number;  // NDCG score for ranking accuracy
+  throughput: number;      // Messages per second
 }
 
-interface TestResult {
-  query: string;
-  useReranker: boolean;
-  executionTime: number;
-  topResults: Array<{
-    content: string;
-    similarity: number;
-    rerankedScore?: number;
-    finalScore?: number;
-  }>;
-  note?: string;
-  scale?: string;
+interface AccuracyMetrics {
+  ndcg: number;           // Normalized Discounted Cumulative Gain
+  precision: number;      // Precision@k
+  mrr: number;           // Mean Reciprocal Rank
+}
+
+// Test configurations
+const SCALES = [
+  { name: 'tiny', factor: 1 },
+  { name: 'small', factor: 5 },
+  { name: 'medium', factor: 10 },
+  { name: 'large', factor: 25 },
+  { name: 'xlarge', factor: 50 }
+];
+
+const BATCH_SIZES = [5, 10, 20, 50];
+const PARALLEL_OPTIONS = [true, false];
+
+// Ground truth data for accuracy measurement
+const GROUND_TRUTH = {
+  "anxiety": [
+    "I feel anxious",
+    "I've been experiencing increased anxiety and stress at work, particularly during team meetings",
+    "Work is stressful"
+  ],
+  "Tell me about anxiety at work": [
+    "I've been experiencing increased anxiety and stress at work, particularly during team meetings",
+    "Work is stressful",
+    "The combination of breathing exercises and mindfulness techniques you suggested has been helping manage my stress"
+  ],
+  "What stress management techniques have been most effective?": [
+    "The combination of breathing exercises and mindfulness techniques you suggested has been helping manage my stress",
+    "Breathing helps",
+    "Today was notably better than yesterday, I felt more in control of my emotions and reactions"
+  ]
+};
+
+// Calculate NDCG (Normalized Discounted Cumulative Gain)
+function calculateNDCG(results: any[], groundTruth: string[]): number {
+  const relevanceScores = results.map(r => 
+    groundTruth.includes(r.message.content) ? 1 : 0
+  );
+  
+  const dcg = relevanceScores.reduce<number>((sum, score, i) => 
+    sum + (score / Math.log2(i + 2)), 0
+  );
+  
+  const idealScores = [...Array(results.length)].map((_, i) => 
+    i < groundTruth.length ? 1 : 0
+  );
+  
+  const idcg = idealScores.reduce<number>((sum, score, i) => 
+    sum + (score / Math.log2(i + 2)), 0
+  );
+  
+  return idcg === 0 ? 0 : dcg / idcg;
+}
+
+// Calculate Precision@k
+function calculatePrecision(results: any[], groundTruth: string[]): number {
+  const relevant = results.filter(r => 
+    groundTruth.includes(r.message.content)
+  ).length;
+  return relevant / Math.min(results.length, groundTruth.length);
+}
+
+// Calculate MRR (Mean Reciprocal Rank)
+function calculateMRR(results: any[], groundTruth: string[]): number {
+  const firstRelevantIndex = results.findIndex(r => 
+    groundTruth.includes(r.message.content)
+  );
+  return firstRelevantIndex === -1 ? 0 : 1 / (firstRelevantIndex + 1);
+}
+
+async function storeMessagesBatch(
+  messages: string[], 
+  userId: string, 
+  sessionId: string, 
+  service: any, 
+  batchSize: number,
+  parallel: boolean
+): Promise<number> {
+  const batches = [];
+  for (let i = 0; i < messages.length; i += batchSize) {
+    const batch = messages.slice(i, i + batchSize);
+    const batchStart = performance.now();
+    const batchPromises = batch.map(content => 
+      service.storeMessage(content, userId, sessionId, 'user')
+    );
+    
+    if (parallel) {
+      batches.push(Promise.all(batchPromises).then(() => performance.now() - batchStart));
+    } else {
+      const batchTime = await batchPromises.reduce(async (promise, current) => {
+        await promise;
+        const start = performance.now();
+        await current;
+        return performance.now() - start;
+      }, Promise.resolve(0));
+      batches.push(batchTime);
+    }
+  }
+  
+  const batchTimes = await Promise.all(batches);
+  return batchTimes.reduce((sum, time) => sum + time, 0);
 }
 
 async function testQueries() {
+  console.log('Starting comprehensive performance and accuracy tests...');
   const service = useEmbeddingsService();
+  const results: TestResult[] = [];
   
-  // Initialize Supabase client
+  // Initialize Supabase client with edge optimizations
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: { persistSession: false },
+      db: { schema: 'public' }
+    }
   );
 
-  // Create a test user
+  // Create test user and session
   const uniqueId = Date.now().toString();
-  const { data: user, error: userError } = await supabase
+  const { data: user } = await supabase
     .from('users')
     .insert({
       id: `test-user-${uniqueId}`,
@@ -42,276 +152,219 @@ async function testQueries() {
     .select()
     .single();
 
-  if (userError) throw userError;
+  if (!user) throw new Error('Failed to create test user');
   const userId = user.id;
 
-  // Create a test session
-  const { data: session, error: sessionError } = await supabase
+  const { data: session } = await supabase
     .from('sessions')
-    .insert({
-      user_id: userId
-    })
+    .insert({ user_id: userId })
     .select()
     .single();
 
-  if (sessionError) throw sessionError;
+  if (!session) throw new Error('Failed to create test session');
   const sessionId = session.id;
 
-  const testResults: TestResult[] = [];
-
   try {
-    // Base messages for different emotional states and topics
     const baseMessages = [
-      // Anxiety and Stress
-      "I've been feeling quite anxious lately, especially at work",
-      "My team has been supportive, but I still struggle with deadlines",
-      "Yesterday I had a panic attack during a meeting",
-      // Coping Strategies
-      "I'm practicing meditation to help manage stress",
-      "The breathing exercises you suggested are helping",
-      "Today was better, I felt more in control",
-      // Career and Future
-      "Sometimes I worry about my future career prospects",
-      "The workplace environment feels overwhelming",
-      // Progress and Improvement
-      "I've started using the mindfulness techniques we discussed",
-      "My productivity has improved since implementing these strategies",
-      // Additional Context
-      "The team dynamics have changed since our last discussion",
-      "I'm finding it easier to communicate with colleagues",
-      "The new project management approach is working well",
-      "I've noticed improvements in my sleep patterns",
-      "The weekly check-ins are helping me stay focused"
+      "I feel anxious",
+      "Work is stressful",
+      "Breathing helps",
+      "I've been experiencing increased anxiety and stress at work, particularly during team meetings",
+      "The combination of breathing exercises and mindfulness techniques you suggested has been helping manage my stress",
+      "Today was notably better than yesterday, I felt more in control of my emotions and reactions",
+      "The implementation of new project management methodologies has significantly impacted team dynamics",
+      "Our recent code refactoring efforts have improved system performance by 25%",
+      "The integration of machine learning models has enhanced our prediction accuracy"
     ];
 
-    // Generate variations for different scales
-    const generateMessages = (scale: number) => {
-      const variations = [
-        ...baseMessages,
-        ...baseMessages.map(msg => msg.replace('work', 'meetings')),
-        ...baseMessages.map(msg => msg.replace('anxiety', 'stress')),
-        ...baseMessages.map(msg => msg.replace('meditation', 'exercise')),
-        ...baseMessages.map(msg => msg.replace('breathing', 'relaxation')),
-      ];
-
-      // Multiply messages based on scale
-      return Array(scale).fill(variations).flat();
-    };
-
-    // Test different scales
-    const scales = [
-      { name: 'small', factor: 1, messages: generateMessages(1) },
-      { name: 'medium', factor: 2, messages: generateMessages(2) },
-      { name: 'large', factor: 4, messages: generateMessages(4) }
-    ];
-
-    // Scoring approaches with different weights and strategies
-    const scoringApproaches: ScoringApproach[] = [
-      {
-        name: "Simple Average",
-        description: "Equal weights for vector and reranker scores",
-        combine: (s, r) => (s + r) / 2
-      },
-      {
-        name: "Vector Heavy (0.8/0.2)",
-        description: "Emphasizes vector similarity",
-        combine: (s, r) => 0.8 * s + 0.2 * r
-      },
-      {
-        name: "Reranker Heavy (0.2/0.8)",
-        description: "Emphasizes semantic reranking",
-        combine: (s, r) => 0.2 * s + 0.8 * r
-      },
-      {
-        name: "Balanced (0.6/0.4)",
-        description: "Slight emphasis on vector similarity",
-        combine: (s, r) => 0.6 * s + 0.4 * r
-      },
-      {
-        name: "Dynamic Threshold",
-        description: "Uses vector similarity threshold",
-        combine: (s, r) => s > 0.8 ? s : (0.5 * s + 0.5 * r)
-      },
-      {
-        name: "Geometric Mean",
-        description: "Balanced scoring using geometric mean",
-        combine: (s, r) => Math.sqrt(s * r)
-      },
-      {
-        name: "Harmonic Mean",
-        description: "Emphasizes lower scores",
-        combine: (s, r) => 2 / (1/s + 1/r)
-      }
-    ];
-
-    // Test queries with different characteristics
     const queries = [
       {
-        text: "Tell me about anxiety at work",
+        text: "anxiety",
+        type: "simple",
         useReranker: false,
-        note: "Direct keyword match"
+        groundTruth: GROUND_TRUTH["anxiety"]
       },
       {
-        text: "What coping mechanisms have been helpful?",
+        text: "Tell me about anxiety at work",
+        type: "moderate",
         useReranker: true,
-        note: "Semantic relationship"
+        groundTruth: GROUND_TRUTH["Tell me about anxiety at work"]
       },
       {
-        text: "How has your mental health improved?",
+        text: "What stress management techniques have been most effective?",
+        type: "complex",
         useReranker: true,
-        note: "Abstract concept"
-      },
-      {
-        text: "What strategies help with workplace stress?",
-        useReranker: true,
-        note: "Combined concepts"
-      },
-      {
-        text: "Tell me about your progress",
-        useReranker: true,
-        note: "General inquiry"
-      },
-      {
-        text: "How do you handle team dynamics?",
-        useReranker: true,
-        note: "Indirect relationship"
+        groundTruth: GROUND_TRUTH["What stress management techniques have been most effective?"]
       }
     ];
 
-    // Run tests for each scale
-    for (const scale of scales) {
-      console.log(`\n=== Testing with ${scale.name} scale (${scale.messages.length} messages) ===`);
+    // Test each combination of scale, batch size, and parallel processing
+    for (const scale of SCALES) {
+      console.log(`\n=== Testing ${scale.name} scale (${scale.factor}x) ===`);
       
-      // Store messages
-      const startStore = performance.now();
-      await Promise.all(scale.messages.map(content => 
-        service.storeMessage(content, userId, sessionId, 'user')
-      ));
-      const storeTime = performance.now() - startStore;
+      const messages = Array(scale.factor).fill(baseMessages).flat();
       
-      // Run queries
-      for (const query of queries) {
-        const startQuery = performance.now();
-        const results = await service.getRelevantContext(
-          query.text,
-          userId,
-          sessionId,
-          5,
-          query.useReranker
-        );
-        const queryTime = performance.now() - startQuery;
+      for (const batchSize of BATCH_SIZES) {
+        for (const parallel of PARALLEL_OPTIONS) {
+          console.log(`\nConfiguration: Batch Size ${batchSize}, Parallel: ${parallel}`);
+          console.log(`Storing ${messages.length} messages...`);
+          
+          const storageStart = performance.now();
+          const storageTime = await storeMessagesBatch(
+            messages, 
+            userId, 
+            sessionId, 
+            service, 
+            batchSize,
+            parallel
+          );
+          
+          const throughput = (messages.length / storageTime) * 1000; // msgs/second
+          console.log(`Storage completed in ${storageTime.toFixed(2)}ms`);
+          console.log(`Throughput: ${throughput.toFixed(2)} messages/second`);
 
-        testResults.push({
-          query: query.text,
-          useReranker: query.useReranker,
-          executionTime: queryTime,
-          topResults: results.map(r => ({
-            content: r.message.content,
-            similarity: r.similarity,
-            rerankedScore: r.rerankedScore,
-            finalScore: r.finalScore
-          })),
-          note: query.note,
-          scale: scale.name
-        });
+          // Test each query
+          for (const query of queries) {
+            console.log(`\nExecuting ${query.type} query: "${query.text}"`);
+            
+            const queryStart = performance.now();
+            const networkStart = performance.now();
+            const queryResults = await service.getRelevantContext(
+              query.text,
+              userId,
+              sessionId,
+              5,
+              query.useReranker
+            );
+            const networkTime = performance.now() - networkStart;
+            const processingTime = performance.now() - queryStart - networkTime;
 
-        // Add delay between queries
-        await new Promise(resolve => setTimeout(resolve, 1000));
+            // Calculate accuracy metrics
+            const accuracyMetrics: AccuracyMetrics = {
+              ndcg: calculateNDCG(queryResults, query.groundTruth),
+              precision: calculatePrecision(queryResults, query.groundTruth),
+              mrr: calculateMRR(queryResults, query.groundTruth)
+            };
+
+            results.push({
+              scale: scale.name,
+              queryType: query.type,
+              useReranker: query.useReranker,
+              messageCount: messages.length,
+              storageTime,
+              queryTime: performance.now() - queryStart,
+              avgStorageTimePerMsg: storageTime / messages.length,
+              results: queryResults,
+              batchSize,
+              parallelProcessing: parallel,
+              networkTime,
+              processingTime,
+              accuracyScore: accuracyMetrics.ndcg,
+              throughput
+            });
+
+            // Log performance and accuracy metrics
+            console.log(`Query completed in ${(performance.now() - queryStart).toFixed(2)}ms`);
+            console.log(`Network time: ${networkTime.toFixed(2)}ms`);
+            console.log(`Processing time: ${processingTime.toFixed(2)}ms`);
+            console.log('Accuracy Metrics:');
+            console.log(`- NDCG: ${accuracyMetrics.ndcg.toFixed(3)}`);
+            console.log(`- Precision@k: ${accuracyMetrics.precision.toFixed(3)}`);
+            console.log(`- MRR: ${accuracyMetrics.mrr.toFixed(3)}`);
+            console.log('Top result:', queryResults[0]?.message.content);
+            console.log('Similarity:', queryResults[0]?.similarity.toFixed(3));
+            if (query.useReranker) {
+              console.log('Reranked score:', queryResults[0]?.rerankedScore?.toFixed(3));
+            }
+          }
+
+          // Clean up messages before next batch
+          await supabase.from('messages').delete().eq('session_id', sessionId);
+        }
       }
-
-      // Clean up messages for this scale
-      await supabase
-        .from('messages')
-        .delete()
-        .eq('session_id', sessionId);
     }
 
-    // Print comprehensive results
-    console.log('\n======= TEST RESULTS =======');
+    // Print comprehensive summary
+    console.log('\n=== COMPREHENSIVE PERFORMANCE AND ACCURACY SUMMARY ===');
     
-    // Scale Performance
-    console.log('\n=== Scale Performance ===');
-    for (const scale of scales) {
-      const scaleResults = testResults.filter(r => r.scale === scale.name);
-      const avgTime = scaleResults.reduce((sum, r) => sum + r.executionTime, 0) / scaleResults.length;
+    // Storage Performance Summary
+    console.log('\nStorage Performance by Configuration:');
+    for (const scale of SCALES) {
       console.log(`\n${scale.name.toUpperCase()} SCALE:`);
-      console.log(`Messages: ${scale.messages.length}`);
-      console.log(`Average query time: ${avgTime.toFixed(2)}ms`);
-      console.log(`With reranker: ${scaleResults.filter(r => r.useReranker).reduce((sum, r) => sum + r.executionTime, 0) / scaleResults.filter(r => r.useReranker).length}ms`);
-      console.log(`Without reranker: ${scaleResults.filter(r => !r.useReranker).reduce((sum, r) => sum + r.executionTime, 0) / scaleResults.filter(r => !r.useReranker).length}ms`);
-    }
-
-    // Query Type Performance
-    console.log('\n=== Query Type Performance ===');
-    for (const query of queries) {
-      const queryResults = testResults.filter(r => r.query === query.text);
-      console.log(`\n"${query.text}" (${query.note}):`);
-      console.log(`Average similarity: ${(queryResults.reduce((sum, r) => sum + r.topResults[0].similarity, 0) / queryResults.length * 100).toFixed(1)}%`);
-      if (query.useReranker) {
-        console.log(`Average reranked score: ${(queryResults.reduce((sum, r) => sum + (r.topResults[0].rerankedScore || 0), 0) / queryResults.length * 100).toFixed(1)}%`);
+      for (const batchSize of BATCH_SIZES) {
+        for (const parallel of PARALLEL_OPTIONS) {
+          const configResults = results.filter(r => 
+            r.scale === scale.name && 
+            r.batchSize === batchSize && 
+            r.parallelProcessing === parallel
+          );
+          
+          if (configResults.length > 0) {
+            const avgThroughput = configResults.reduce((sum, r) => sum + r.throughput, 0) / configResults.length;
+            console.log(`Batch ${batchSize}, Parallel ${parallel}:`);
+            console.log(`- Avg throughput: ${avgThroughput.toFixed(2)} msgs/sec`);
+            console.log(`- Avg time per message: ${configResults[0].avgStorageTimePerMsg.toFixed(2)}ms`);
+          }
+        }
       }
     }
 
-    // Scoring Approach Comparison
-    console.log('\n=== Scoring Approach Comparison ===');
-    const rerankedResults = testResults.filter(r => r.useReranker && r.topResults[0].rerankedScore);
+    // Query Performance Summary
+    console.log('\nQuery Performance by Type:');
+    for (const queryType of ['simple', 'moderate', 'complex']) {
+      console.log(`\n${queryType.toUpperCase()} QUERIES:`);
+      for (const scale of SCALES) {
+        const scaleResults = results.filter(r => 
+          r.scale === scale.name && 
+          r.queryType === queryType
+        );
+        
+        if (scaleResults.length > 0) {
+          const avgTime = scaleResults.reduce((sum, r) => sum + r.queryTime, 0) / scaleResults.length;
+          const avgAccuracy = scaleResults.reduce((sum, r) => sum + (r.accuracyScore || 0), 0) / scaleResults.length;
+          
+          console.log(`${scale.name} scale:`);
+          console.log(`- Avg query time: ${avgTime.toFixed(2)}ms`);
+          console.log(`- Avg NDCG score: ${avgAccuracy.toFixed(3)}`);
+        }
+      }
+    }
+
+    // Best Configurations Summary
+    console.log('\nBest Configurations:');
     
-    scoringApproaches.forEach(approach => {
-      const scores = rerankedResults.map(result => ({
-        score: approach.combine(result.topResults[0].similarity, result.topResults[0].rerankedScore!),
-        scale: result.scale,
-        query: result.query
-      }));
+    // Best for storage
+    const bestStorage = results.reduce((best, current) => 
+      current.throughput > (best?.throughput || 0) ? current : best
+    );
+    
+    console.log('\nBest Storage Configuration:');
+    console.log(`- Scale: ${bestStorage.scale}`);
+    console.log(`- Batch size: ${bestStorage.batchSize}`);
+    console.log(`- Parallel processing: ${bestStorage.parallelProcessing}`);
+    console.log(`- Throughput: ${bestStorage.throughput.toFixed(2)} msgs/sec`);
 
-      console.log(`\n${approach.name}:`);
-      console.log(`Description: ${approach.description}`);
-      console.log(`Average score: ${(scores.reduce((sum, s) => sum + s.score, 0) / scores.length * 100).toFixed(1)}%`);
-      console.log('Best performing on:');
-      const bestScore = Math.max(...scores.map(s => s.score));
-      scores.filter(s => s.score === bestScore).forEach(s => {
-        console.log(`- "${s.query}" (${s.scale} scale): ${(s.score * 100).toFixed(1)}%`);
-      });
-    });
-
-    // Recommendations
-    console.log('\n=== Recommendations ===');
-    const bestApproach = scoringApproaches
-      .map(approach => ({
-        name: approach.name,
-        avgScore: rerankedResults.reduce((sum, r) => 
-          sum + approach.combine(r.topResults[0].similarity, r.topResults[0].rerankedScore!), 0
-        ) / rerankedResults.length
-      }))
-      .sort((a, b) => b.avgScore - a.avgScore)[0];
-
-    console.log(`1. Best scoring approach: ${bestApproach.name}`);
-    console.log(`2. Optimal scale for response time: ${
-      scales.map(scale => ({
-        name: scale.name,
-        avgTime: testResults.filter(r => r.scale === scale.name)
-          .reduce((sum, r) => sum + r.executionTime, 0) / testResults.filter(r => r.scale === scale.name).length
-      }))
-      .sort((a, b) => a.avgTime - b.avgTime)[0].name
-    }`);
-    console.log(`3. Reranker impact: ${
-      (rerankedResults.reduce((sum, r) => 
-        sum + (r.topResults[0].rerankedScore! - r.topResults[0].similarity), 0
-      ) / rerankedResults.length * 100).toFixed(1)
-    }% average score change`);
+    // Best for query accuracy
+    const bestAccuracy = results.reduce((best, current) => 
+      (current.accuracyScore || 0) > (best?.accuracyScore || 0) ? current : best
+    );
+    
+    console.log('\nBest Query Accuracy:');
+    console.log(`- Scale: ${bestAccuracy.scale}`);
+    console.log(`- Query type: ${bestAccuracy.queryType}`);
+    console.log(`- Reranker: ${bestAccuracy.useReranker}`);
+    console.log(`- NDCG score: ${bestAccuracy.accuracyScore?.toFixed(3)}`);
 
   } finally {
-    // Final cleanup
-    console.log('\nCleaning up test data...');
-    await supabase
-      .from('sessions')
-      .delete()
-      .eq('id', sessionId);
-
-    await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId);
+    console.log('\nCleaning up...');
+    await supabase.from('messages').delete().eq('session_id', sessionId);
+    await supabase.from('sessions').delete().eq('id', sessionId);
+    await supabase.from('users').delete().eq('id', userId);
   }
 }
 
-testQueries().catch(console.error); 
+// Run tests
+console.time('Total test duration');
+testQueries()
+  .then(() => console.timeEnd('Total test duration'))
+  .catch(console.error); 
