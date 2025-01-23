@@ -1,4 +1,4 @@
-const JINA_API_KEY = process.env.NEXT_PUBLIC_JINA_API_KEY;
+const JINA_API_KEY = process.env.JINA_API_KEY;
 
 type JinaTask = 'text-matching' | 'separation' | 'classification' | 'retrieval.query' | 'retrieval.passage';
 
