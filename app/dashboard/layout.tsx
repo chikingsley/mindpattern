@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "../globals.css";
-import { Nav } from "@/components/Nav";
 import { cn } from "@/lib/utils";
 import { ChatProvider } from "@/app/context/ChatContext";
 import { VoiceProvider } from "@humeai/voice-react";
@@ -131,7 +130,6 @@ export default async function RootLayout({
           >
             <VoiceSessionManager />
             <div className="flex h-screen flex-col">
-              <Nav />
               <div className="flex flex-1 overflow-hidden">
                 <SidebarProvider>
                   <AppSidebar />
