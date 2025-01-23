@@ -1,42 +1,3 @@
-/**
- * Chat Completions API Route Handler
- * 
- * This file handles the chat completions API endpoint that bridges Hume's frontend with OpenAI's API.
- * It processes streaming responses and handles prosody data integration.
- * 
- * Flow:
- * 1. Request Processing
- *    - Receives POST requests with messages in Hume's format
- *    - Validates authentication if API key is present
- *    - Extracts custom session ID from URL params
- * 
- * 2. Message Transformation
- *    - Converts Hume's message format to OpenAI format
- *    - Stores prosody data for later use in responses
- *    - Prepends system prompt to guide AI responses
- * 
- * 3. OpenAI Integration
- *    - Streams request to OpenAI via OpenRouter
- *    - Uses configured model (default: gpt-3.5-turbo)
- * 
- * 4. Response Streaming
- *    - Processes OpenAI's streaming response
- *    - Transforms each chunk back to Hume's format
- *    - Adds stored prosody data to responses
- *    - Sends SSE (Server-Sent Events) to client
- * 
- * 5. Error Handling
- *    - Handles authentication errors
- *    - Manages streaming errors
- *    - Provides appropriate error responses
- * 
- * Environment Variables Required:
- * - OPEN_ROUTER_API_KEY: API key for OpenRouter
- * - OPEN_ROUTER_MODEL: Model identifier (e.g., 'anthropic/claude-3.5-sonnet')
- * - MEM0_API_KEY: API key for memory client
- * - HUME_API_KEY: Optional, for authentication
- */
-
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt';
@@ -215,6 +176,7 @@ export async function POST(req: NextRequest) {
                     const finalResponse = await openai.chat.completions.create({
                       model: validatedModel,
                       messages: messages,
+                      tools: toolRegistry.getToolDefinitions(),
                       stream: true
                     });
                     

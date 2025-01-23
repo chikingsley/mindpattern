@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv'
 import { getModelName } from '@/lib/config'
 import { ContextTracker } from '@/lib/tracker'
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt'
-import { tools } from '@/types/tools'
+import { toolRegistry } from '@/services/tools/registry'
 import { vi } from 'vitest'
 
 // Load environment variables from .env file
@@ -93,34 +93,14 @@ describe('chat completions route', () => {
 
 // Helper function to create request
 function createNextRequest(body: any): NextRequest {
+  const tools = toolRegistry.getToolDefinitions();
   return new NextRequest(
     new URL('http://localhost:3000/api/chat/completions'),
     {
       method: 'POST',
       body: JSON.stringify({
         ...body,
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'get_current_weather',
-            description: 'Get the current weather in a given location',
-            parameters: {
-              type: 'object',
-              properties: {
-                location: {
-                  type: 'string',
-                  description: 'The city and state, e.g. San Francisco, CA',
-                },
-                unit: {
-                  type: 'string',
-                  enum: ['celsius', 'fahrenheit'],
-                  description: 'The unit for the temperature',
-                },
-              },
-              required: ['location'],
-            },
-          }
-        }],
+        tools,
         tool_choice: {
           type: 'function',
           function: { name: 'get_current_weather' }

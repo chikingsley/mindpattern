@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { handleWeather, handleUserProfile, ToolCall } from './types';
+import { ToolCall } from './types';
+import { toolRegistry } from './registry';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -14,7 +15,8 @@ describe('Weather Tool', () => {
       }
     };
 
-    const result = await handleWeather(toolCall);
+    const results = await toolRegistry.handleToolCalls([toolCall]);
+    const result = results[0];
     const parsed = JSON.parse(result.output);
     
     expect(parsed.temperature).toBe("10");
@@ -32,7 +34,8 @@ describe('Weather Tool', () => {
       }
     };
 
-    const result = await handleWeather(toolCall);
+    const results = await toolRegistry.handleToolCalls([toolCall]);
+    const result = results[0];
     const parsed = JSON.parse(result.output);
     
     expect(parsed.temperature).toBe("72");
@@ -50,7 +53,8 @@ describe('Weather Tool', () => {
       }
     };
 
-    const result = await handleWeather(toolCall);
+    const results = await toolRegistry.handleToolCalls([toolCall]);
+    const result = results[0];
     const parsed = JSON.parse(result.output);
     
     expect(parsed.temperature).toBe("22");
@@ -66,6 +70,8 @@ describe('User Profile Tool', () => {
     await fs.mkdir(path.join(process.cwd(), 'data'), { recursive: true });
     // Start with empty profile
     await fs.writeFile(TEST_PROFILE_PATH, '{}');
+    // Set test path in registry
+    toolRegistry.setTestProfilePath(TEST_PROFILE_PATH);
   });
 
   afterEach(async () => {
@@ -92,7 +98,8 @@ describe('User Profile Tool', () => {
       }
     };
 
-    const result = await handleUserProfile(toolCall, TEST_PROFILE_PATH);
+    const results = await toolRegistry.handleToolCalls([toolCall]);
+    const result = results[0];
     const parsed = JSON.parse(result.output);
     
     expect(parsed.success).toBe(true);
@@ -107,7 +114,7 @@ describe('User Profile Tool', () => {
 
   it('should update existing user information', async () => {
     // First update
-    await handleUserProfile({
+    await toolRegistry.handleToolCalls([{
       id: 'test-id-1',
       index: 0,
       function: {
@@ -117,7 +124,7 @@ describe('User Profile Tool', () => {
           value: 'New York'
         })
       }
-    }, TEST_PROFILE_PATH);
+    }]);
 
     // Second update
     const toolCall: ToolCall = {
@@ -132,7 +139,8 @@ describe('User Profile Tool', () => {
       }
     };
 
-    const result = await handleUserProfile(toolCall, TEST_PROFILE_PATH);
+    const results = await toolRegistry.handleToolCalls([toolCall]);
+    const result = results[0];
     const parsed = JSON.parse(result.output);
     
     expect(parsed.success).toBe(true);
@@ -152,14 +160,14 @@ describe('User Profile Tool', () => {
     ];
 
     for (const update of updates) {
-      await handleUserProfile({
+      await toolRegistry.handleToolCalls([{
         id: `test-id-${update.key}`,
         index: 0,
         function: {
           name: 'update_user_profile',
           arguments: JSON.stringify(update)
         }
-      }, TEST_PROFILE_PATH);
+      }]);
     }
 
     // Verify file contents
@@ -169,5 +177,12 @@ describe('User Profile Tool', () => {
     expect(profile.name).toBe('Jane Doe');
     expect(profile.occupation).toBe('Software Engineer');
     expect(profile.favorite_color).toBe('blue');
+  });
+
+  it('should handle tool definitions', () => {
+    const tools = toolRegistry.getToolDefinitions();
+    expect(tools).toHaveLength(2); // Weather and User Profile tools
+    expect(tools[0].function.name).toBe('get_current_weather');
+    expect(tools[1].function.name).toBe('update_user_profile');
   });
 }); 
