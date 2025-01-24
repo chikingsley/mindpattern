@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import type { ChatMessage } from '@/prisma/prisma-types'
 import { useSession } from '@clerk/nextjs'
-import { SESSION_CREATED_EVENT, type SessionCreatedDetail } from '@/components/VoiceSessionManager'
+import { SESSION_CREATED_EVENT, type SessionCreatedDetail } from '@/components/chat/VoiceSessionManager'
 
 // Basic chat session structure
 interface ChatSession {

@@ -3,16 +3,14 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "../globals.css";
 import { cn } from "@/lib/utils";
-import { ChatProvider } from "@/app/context/ChatContext";
+import { ChatProvider } from "@/components/chat/ChatContext";
 import { VoiceProvider } from "@humeai/voice-react";
 import { getHumeAccessToken } from "@/services/hume/getHumeAccessToken";
 import { ClerkProvider } from '@clerk/nextjs';
 import { currentUser } from '@clerk/nextjs/server';
-import { AppSidebar } from "@/components/app-sidebar";
-import { VoiceSessionManager } from "@/components/VoiceSessionManager";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
+import { AppSidebar } from "@/components/sidebar/app-sidebar";
+import { VoiceSessionManager } from "@/components/chat/VoiceSessionManager";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { prisma } from "@/prisma/prisma";
 
 export const runtime = 'nodejs'

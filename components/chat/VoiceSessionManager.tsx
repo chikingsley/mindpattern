@@ -10,6 +10,12 @@ export interface SessionCreatedDetail {
   sessionId: string;
 }
 
+declare global {
+  interface WindowEventMap {
+    [SESSION_CREATED_EVENT]: CustomEvent<SessionCreatedDetail>;
+  }
+}
+
 export function VoiceSessionManager() {
   const { sendSessionSettings } = useVoice();
 
@@ -21,10 +27,10 @@ export function VoiceSessionManager() {
     };
 
     // Listen for session created events
-    window.addEventListener(SESSION_CREATED_EVENT, handleSessionCreated as EventListener);
+    window.addEventListener(SESSION_CREATED_EVENT, handleSessionCreated);
 
     return () => {
-      window.removeEventListener(SESSION_CREATED_EVENT, handleSessionCreated as EventListener);
+      window.removeEventListener(SESSION_CREATED_EVENT, handleSessionCreated);
     };
   }, [sendSessionSettings]);
 

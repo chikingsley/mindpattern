@@ -1,12 +1,11 @@
 "use client";
 
-import { cn } from "../lib/utils";
+import { cn } from "../../lib/utils";
 import { useVoice } from "@humeai/voice-react";
 import Expressions from "./Expressions";
 import { AnimatePresence, motion } from "framer-motion";
 import { forwardRef, useEffect, useRef } from "react";
-import { useChatContext } from "../app/context/ChatContext";
-import type { ChatMessage } from "@/prisma/prisma-types";
+import { useChatContext } from "./ChatContext";
 
 const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
   const { messages: voiceMessages } = useVoice();

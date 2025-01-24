@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import { createHumeConfig, deleteHumeConfig } from '@/services/hume/hume-auth'
 import { createClerkClient } from '@clerk/backend'
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt'
+import { NextRequest } from 'next/server'
 
 const prisma = new PrismaClient()
 const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
@@ -16,7 +17,7 @@ async function checkUserExists(userId: string) {
   return count > 0;
 }
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   const SIGNING_SECRET = process.env.SIGNING_SECRET
 
   if (!SIGNING_SECRET) {
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
   }
 
   // Get body
-  const payload = await req.json()
+  const payload = await request.json()
   const body = JSON.stringify(payload)
 
   let evt: WebhookEvent

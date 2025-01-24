@@ -32,7 +32,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { SignInButton, SignOutButton, useUser } from "@clerk/nextjs"
-import { Button } from "./ui/button"
+import { Button } from "@/components/ui/button"
 import { MouseEvent } from "react"
 
 export function NavUser() {

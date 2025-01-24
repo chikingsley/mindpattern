@@ -31,13 +31,6 @@
   - `connect`: Initiates voice connection
 - Manages new chat sessions and connection state
 
-### components/StartCall.tsx
-- Utilizes `useVoice` hook
-- Implements features:
-  - `status`: Checks connection state
-  - `connect`: Initiates voice connection
-- Provides functionality for starting a call when not connected
-
 ## Necessity Analysis
 
 1. **layout.tsx**: Essential - Provides voice context to all components

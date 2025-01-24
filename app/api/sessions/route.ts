@@ -1,8 +1,8 @@
 import { auth } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/prisma/prisma'
-import { expressionColors } from '@/services/hume/expressions/expressionColors'
-import { expressionLabels } from '@/services/hume/expressions/expressionLabels'
+import { expressionColors } from '@/components/chat/expressions/expressionColors'
+import { expressionLabels } from '@/components/chat/expressions/expressionLabels'
 
 // Helper to enrich prosody data
 function enrichProsodyData(message: any) {
@@ -92,7 +92,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Get authenticated user
     const { userId } = await auth()

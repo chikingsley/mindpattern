@@ -1,20 +1,17 @@
 import dynamic from "next/dynamic";
-import { HydrationOverlay } from "@builder.io/react-hydration-overlay";
+import { Suspense } from "react";
 
 export const runtime = 'nodejs';
 
-const ChatComponent = dynamic(() => import("@/components/Chat"), {
+// Dynamically import the chat component
+const ChatContainer = dynamic(() => import("@/components/chat/ChatContainer"), {
   loading: () => <div>Loading...</div>
 });
 
-export default function Page() {
+export default function DashboardPage() {
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex-1 min-h-0">
-        <HydrationOverlay>
-          <ChatComponent />
-        </HydrationOverlay>
-      </div>
-    </div>
+    <Suspense fallback={<div>Loading...</div>}>
+      <ChatContainer />
+    </Suspense>
   );
 }

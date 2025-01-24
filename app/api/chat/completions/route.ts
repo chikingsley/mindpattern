@@ -6,8 +6,8 @@ import { ToolService } from '@/services/tools/tool-service';
 import { config, getBaseUrl, getApiKey, getModelName } from '@/lib/config';
 import { StreamingService } from '@/services/streaming/stream-service';
 import { embeddingsService } from '@/services/embeddings/EmbeddingsService';
-import { expressionColors } from '@/services/hume/expressions/expressionColors';
-import { expressionLabels } from '@/services/hume/expressions/expressionLabels';
+import { expressionColors } from '@/components/chat/expressions/expressionColors';
+import { expressionLabels } from '@/components/chat/expressions/expressionLabels';
 
 const openai = new OpenAI({
   apiKey: getApiKey(config.USE_OPENROUTER),
@@ -18,7 +18,7 @@ const validatedModel = getModelName(config.USE_OPENROUTER);
 const streamingService = new StreamingService();
 const toolService = new ToolService();
 
-export async function OPTIONS(req: NextRequest) {
+export async function OPTIONS(request: NextRequest) {
   return streamingService.setupCORSResponse();
 }
 

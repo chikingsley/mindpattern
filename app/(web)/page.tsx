@@ -13,24 +13,16 @@ import {
 } from "@/components/ui/accordion"
 import { 
   Brain, 
-  Shield, 
-  CircleDot, 
   Heart, 
   Sparkles, 
-  Workflow, 
-  Network, 
-  MessageSquare, 
   Check, 
-  ChevronDown, 
-  ArrowRight, 
   Book, 
   Lightbulb, 
-  Target, 
-  Play 
+  Target
 } from 'lucide-react'
 import { SignedIn, SignedOut, UserButton, SignInButton } from '@clerk/nextjs'
 import { BackgroundGradient } from "@/components/ui/background"
-import FeatureDemoSection from "@/components/feature-demo"
+import FeatureDemoSection from "@/components/mock/feature-demo"
 
 export default function EnhancedLandingPage() {
   return (
