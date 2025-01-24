@@ -99,18 +99,6 @@ const Messages = forwardRef<HTMLDivElement>(function Messages(_, ref) {
     }
   };
 
-  // Debug logging
-  console.debug('Current session:', {
-    id: activeSessionId,
-    messageCount: currentMessages.length,
-    messages: currentMessages.map(m => ({
-      role: m.role,
-      content: m.content ? m.content.substring(0, 50) + '...' : '[No content]',
-      timestamp: m.timestamp,
-      metadata: m.metadata
-    }))
-  });
-
   // If messages can't be loaded for an existing chat, show error state
   const session = sessions.find(s => s.id === activeSessionId);
   if (activeSessionId && !currentMessages.length && session?.messages?.length) {
