@@ -1,13 +1,12 @@
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/prisma/prisma'
 import { createHumeConfig, deleteHumeConfig } from '@/services/hume/hume-auth'
 import { createClerkClient } from '@clerk/backend'
 import { BASE_PROMPT } from '@/app/api/chat/prompts/base-prompt'
 import { NextRequest } from 'next/server'
 
-const prisma = new PrismaClient()
 const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
 
 async function checkUserExists(userId: string) {
