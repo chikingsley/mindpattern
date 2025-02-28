@@ -2,7 +2,7 @@
 
 import { Mic } from "lucide-react";
 import { useState, useEffect } from "react";
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 
 interface AIVoiceInputProps {
   onStart?: () => void;

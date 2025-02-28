@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 import { motion, useAnimation } from "framer-motion";
 import { Magnet } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";

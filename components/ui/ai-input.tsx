@@ -2,7 +2,7 @@
 
 import { CornerRightUp, Mic } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 import { Textarea } from "@/components/ui/textarea";
 import { useAutoResizeTextarea } from "@/components/hooks/use-auto-resize-textarea";
 

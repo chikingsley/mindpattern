@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ui/chat-input";
 import { MagnetizeButton } from "@/components/ui/magnetize-button";
 import { ArrowRight, Mic, Paperclip } from "lucide-react";
-import { cn } from "@/utils";
+import { cn } from "@/utils/classNames";
 
 // Add proper types for Web Speech API
 declare global {
