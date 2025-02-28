@@ -31,9 +31,9 @@ export function VoiceSessionManager() {
     if (typeof window !== 'undefined') {
       // @ts-ignore - Adding debug property to WebSocket
       window.WebSocket = class extends window.WebSocket {
-        constructor(...args: any[]) {
-          console.log('🔌 WebSocket Connecting:', args[0]);
-          super(...args);
+        constructor(url: string, protocols?: string | string[]) {
+          console.log('🔌 WebSocket Connecting:', url);
+          super(url, protocols);
           
           this.addEventListener('open', () => {
             console.log('✅ WebSocket Connected');
