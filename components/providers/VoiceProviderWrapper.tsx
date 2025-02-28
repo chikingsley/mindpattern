@@ -42,13 +42,6 @@ export function VoiceProviderWrapper({
       configId={configId}
       sessionSettings={sessionSettings}
       onError={handleError}
-      onStateChange={(state) => {
-        console.log('🎙️ Voice State Change:', {
-          state,
-          configId,
-          timestamp: new Date().toISOString()
-        });
-      }}
     >
       {children}
     </VoiceProvider>
