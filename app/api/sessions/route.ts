@@ -3,7 +3,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/prisma/prisma'
 import { expressionColors } from '@/components/chat/expressions/expressionColors'
 import { expressionLabels } from '@/components/chat/expressions/expressionLabels'
-import { Session } from '@prisma/client'
+
+// Define our own Session type that matches Prisma's schema
+interface Session {
+  id: string;
+  userId: string;
+  timestamp: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // Define types for our message structures
 type MessageWithMetadata = {
