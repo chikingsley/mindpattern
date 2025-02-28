@@ -3,9 +3,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/prisma/prisma'
 import { expressionColors } from '@/components/chat/expressions/expressionColors'
 import { expressionLabels } from '@/components/chat/expressions/expressionLabels'
+import { Session } from '@prisma/client'
+
+// Define types for our message structures
+type MessageWithMetadata = {
+  id: string;
+  content: string;
+  role: string;
+  sessionId: string;
+  timestamp: Date;
+  metadata?: {
+    prosody?: {
+      scores: Record<string, number>;
+      colors?: Record<string, string>;
+      labels?: Record<string, string>;
+    };
+  };
+  [key: string]: any;
+}
+
+type SessionWithMessages = Session & {
+  messages: MessageWithMetadata[];
+}
 
 // Helper to enrich prosody data
-function enrichProsodyData(message: any) {
+function enrichProsodyData(message: MessageWithMetadata): MessageWithMetadata {
   if (message.metadata?.prosody?.scores) {
     return {
       ...message,
@@ -55,10 +77,10 @@ export async function GET() {
           orderBy: { timestamp: 'asc' }
         }
       }
-    })
+    }) as SessionWithMessages[];
 
     // Enrich prosody data for each message
-    const enrichedSessions = sessions.map(session => ({
+    const enrichedSessions = sessions.map((session: SessionWithMessages) => ({
       ...session,
       messages: session.messages.map(enrichProsodyData)
     }));
