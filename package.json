@@ -8,7 +8,7 @@
     "node": "^22.0.0"
   },
   "scripts": {
-    "dev": "concurrently \"next dev\" \"ngrok http --url=tolerant-bengal-hideously.ngrok-free.app 3000\"",
+    "dev": "concurrently \"next dev\" \"ngrok http --domain=tolerant-bengal-hideously.ngrok-free.app 3000\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

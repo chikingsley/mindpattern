@@ -3,7 +3,7 @@
 import React from 'react';
 import { BackgroundGradient } from "@/components/ui/background";
 import InsightsPanel from '@/components/mock/insights-panel';
-import ChatLanding from '@/components/chat-landing';
+import ChatLanding from '@/components/mock/chat-landing';
 
 export default function TestPage() {
   return (

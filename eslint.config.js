@@ -1,5 +1,7 @@
 import js from '@eslint/js';
 import globals from 'globals';
+import js from '@eslint/js';
+import globals from 'globals/index.js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
 import reactPlugin from 'eslint-plugin-react';

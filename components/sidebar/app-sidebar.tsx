@@ -8,48 +8,36 @@ import { NavConversations } from "@/components/sidebar/nav-conversations"
 import { NavUser } from "@/components/sidebar/nav-user"
 import { NavLogo } from "@/components/sidebar/nav-logo"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
+import { SESSION_CREATED_EVENT } from "@/components/chat/VoiceSessionManager"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { status, connect } = useVoice();
   const { addSession } = useChatContext();
 
-  // Log voice hook state changes
-  React.useEffect(() => {
-    console.log('Voice hook status:', {
-      value: status.value,
-      reason: status.reason,
-      timestamp: new Date().toISOString(),
-      state: {
-        isConnecting: status.value === 'connecting',
-        isConnected: status.value === 'connected',
-        isDisconnected: status.value === 'disconnected',
-        hasError: status.value === 'error',
-      }
-    });
-  }, [status]);
-
   const handleStartCall = async () => {
     try {
-      console.log('Starting voice call...');
-      await connect();
-      console.log('Voice call connected successfully');
-      
-      // Create new session via API
+      // Create new session
       const response = await fetch('/api/sessions', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Failed to create session: ${error.error || response.statusText}`);
+        throw new Error('Failed to create session');
       }
-      
+
       const newSession = await response.json();
-      console.log('Session created:', newSession.id);
       addSession(newSession);
+
+      // Notify VoiceSessionManager
+      window.dispatchEvent(new CustomEvent(SESSION_CREATED_EVENT, {
+        detail: { sessionId: newSession.id }
+      }));
+
+      // Attempt voice connection
+      await connect();
     } catch (error) {
       console.error('Failed to start call:', error);
-      throw error;
     }
   };
 

@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "../globals.css";
 import { cn } from "@/lib/utils";
 import { ChatProvider } from "@/components/chat/ChatContext";
-import { VoiceProvider } from "@humeai/voice-react";
+import { VoiceProviderWrapper } from "@/components/providers/VoiceProviderWrapper";
 import { getHumeAccessToken } from "@/services/hume/getHumeAccessToken";
 import { ClerkProvider } from '@clerk/nextjs';
 import { currentUser } from '@clerk/nextjs/server';
@@ -48,6 +48,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const accessToken = await getHumeAccessToken();
+  console.log('🔑 VoiceProvider Init - Access Token:', accessToken ? 'Present' : 'Missing');
 
   if (!accessToken) {
     throw new Error("No access token available");
@@ -58,9 +59,11 @@ export default async function RootLayout({
   if (!user) {
     throw new Error("No user found. Please try logging out and back in.");
   }
+  console.log('👤 VoiceProvider Init - User:', user.id);
 
   // Get associated Prisma user data with retries
   const prismaUser = await getPrismaUserWithRetry(user.id);
+  console.log('📋 VoiceProvider Init - Prisma User:', prismaUser ? 'Found' : 'Missing');
 
   if (!prismaUser) {
     // If still no user after retries, try to create one
@@ -99,13 +102,11 @@ export default async function RootLayout({
     throw new Error("No Hume config ID found. Please try logging out and back in.");
   }
 
-  // console.log('Initializing Hume Voice Provider:', {
-  //   accessToken: accessToken ? accessToken.slice(0, 10) + '...' : 'missing',
-  //   configId: humeConfigId,
-  //   humeApiKey: process.env.HUME_API_KEY ? 'present' : 'missing',
-  //   humeSecretKey: process.env.HUME_SECRET_KEY ? 'present' : 'missing',
-  //   env: process.env.NODE_ENV,
-  // });
+  console.log('🔧 VoiceProvider Init - Config:', {
+    humeConfigId,
+    hasSystemPrompt: !!systemPrompt,
+    hasLanguageModelKey: !!process.env.OPEN_ROUTER_API_KEY
+  });
 
   return (
     <ClerkProvider>
@@ -117,7 +118,7 @@ export default async function RootLayout({
         )}
       >
         <ChatProvider>
-          <VoiceProvider 
+          <VoiceProviderWrapper 
             auth={{ type: "accessToken", value: accessToken }} 
             configId={humeConfigId}
             sessionSettings={{
@@ -139,7 +140,7 @@ export default async function RootLayout({
                 </SidebarProvider>
               </div>
             </div>
-          </VoiceProvider>
+          </VoiceProviderWrapper>
         </ChatProvider>
       </body>
     </ClerkProvider>
